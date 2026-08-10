@@ -1,186 +1,268 @@
 "use client";
 
-import { useState, useRef } from "react";
-import { UploadResponse, ShareResponse } from "@/types";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import {
+  Upload,
+  FolderOpen,
+  Share2,
+  HardDrive,
+  Search,
+  LayoutGrid,
+  List,
+  Grid3X3,
+  X,
+} from "lucide-react";
+import toast from "react-hot-toast";
+
+import { FileUploader } from "@/components/ui/FileUploader";
+import { FileList } from "@/components/ui/FileList";
+import { FileGrid } from "@/components/ui/FileGrid";
+import { StatsCard } from "@/components/ui/StatsCard";
+import { ShareModal } from "@/components/ui/ShareModal";
+import { Header } from "@/components/layout/Header";
+import { Sidebar } from "@/components/layout/Sidebar";
+import { FileRecord, Stats } from "@/types";
+import { getFiles, saveFile, deleteFile, updateFile, createShareLink } from "@/lib/db";
 
 export default function DashboardPage() {
-  const [file, setFile] = useState<File | null>(null);
-  const [uploading, setUploading] = useState(false);
-  const [uploadedUrl, setUploadedUrl] = useState<string | null>(null);
-  const [fileKey, setFileKey] = useState<string | null>(null);
-  const [shareUrl, setShareUrl] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const router = useRouter();
+  const [files, setFiles] = useState<FileRecord[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [view, setView] = useState<"list" | "grid">("list");
+  const [search, setSearch] = useState("");
+  const [selectedFile, setSelectedFile] = useState<FileRecord | null>(null);
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [stats, setStats] = useState<Stats>({
+    totalFiles: 0,
+    totalSize: 0,
+    totalShares: 0,
+  });
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      setFile(e.target.files[0]);
-      setUploadedUrl(null);
-      setShareUrl(null);
-    }
+  // Load files from localStorage
+  useEffect(() => {
+    const loadFiles = async () => {
+      try {
+        const storedFiles = getFiles();
+        setFiles(storedFiles);
+        updateStats(storedFiles);
+      } catch (error) {
+        console.error("Failed to load files:", error);
+        toast.error("Gagal memuat file");
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadFiles();
+  }, []);
+
+  const updateStats = (fileList: FileRecord[]) => {
+    const totalSize = fileList.reduce((acc, f) => acc + f.size, 0);
+    const totalShares = fileList.filter(f => f.shareId).length;
+    setStats({
+      totalFiles: fileList.length,
+      totalSize,
+      totalShares,
+    });
   };
 
-  const handleUpload = async () => {
-    if (!file) return;
-
-    setUploading(true);
-    setUploadedUrl(null);
-    setShareUrl(null);
-
+  const handleUpload = async (uploadedFiles: File[]) => {
     try {
-      // Step 1: Minta Presigned URL
-      const response = await fetch("/api/upload", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          filename: file.name,
-          filetype: file.type,
-        }),
-      });
+      const uploaded: FileRecord[] = [];
+      
+      for (const file of uploadedFiles) {
+        // 1. Minta Presigned URL
+        const response = await fetch("/api/upload", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            filename: file.name,
+            filetype: file.type,
+          }),
+        });
 
-      if (!response.ok) {
-        throw new Error("Failed to get upload URL");
+        if (!response.ok) {
+          throw new Error("Gagal mendapatkan URL upload");
+        }
+
+        const data = await response.json();
+
+        // 2. Upload file ke Filebase
+        const uploadResponse = await fetch(data.presignedUrl, {
+          method: "PUT",
+          body: file,
+          headers: { "Content-Type": file.type },
+        });
+
+        if (!uploadResponse.ok) {
+          throw new Error("Gagal upload file");
+        }
+
+        // 3. Simpan metadata ke localStorage
+        const fileRecord: FileRecord = {
+          id: data.fileKey,
+          name: file.name,
+          key: data.fileKey,
+          size: file.size,
+          mimeType: file.type,
+          uploadedAt: new Date().toISOString(),
+          publicUrl: data.publicUrl,
+        };
+
+        uploaded.push(fileRecord);
+        saveFile(fileRecord);
       }
 
-      const data: UploadResponse = await response.json();
+      // Update state
+      const updatedFiles = getFiles();
+      setFiles(updatedFiles);
+      updateStats(updatedFiles);
 
-      // Step 2: Upload file langsung ke Filebase
-      const uploadResponse = await fetch(data.presignedUrl, {
-        method: "PUT",
-        body: file,
-        headers: {
-          "Content-Type": file.type,
-        },
-      });
-
-      if (!uploadResponse.ok) {
-        throw new Error("Upload failed");
-      }
-
-      setUploadedUrl(data.publicUrl);
-      setFileKey(data.fileKey);
-      alert("✅ File berhasil diupload!");
+      toast.success(`${uploaded.length} file berhasil diupload!`);
     } catch (error) {
       console.error("Upload error:", error);
-      alert("❌ Upload gagal: " + (error as Error).message);
-    } finally {
-      setUploading(false);
-      setFile(null);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
-      }
+      toast.error("Gagal upload file: " + (error as Error).message);
     }
   };
 
-  const handleCreateShareLink = async () => {
-    if (!fileKey) return;
-
-    try {
-      const response = await fetch("/api/share", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fileKey }),
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to create share link");
-      }
-
-      const data: ShareResponse = await response.json();
-      setShareUrl(data.shareUrl);
-    } catch (error) {
-      alert("❌ Gagal buat link: " + (error as Error).message);
+  const handleDelete = (id: string) => {
+    if (confirm("Apakah Anda yakin ingin menghapus file ini?")) {
+      deleteFile(id);
+      const updatedFiles = getFiles();
+      setFiles(updatedFiles);
+      updateStats(updatedFiles);
+      toast.success("File berhasil dihapus");
     }
   };
 
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
-    alert("📋 Link disalin!");
+  const handleCreateShare = async (fileId: string, password?: string, expiry?: string) => {
+    const shareId = createShareLink(fileId);
+    updateFile(fileId, { shareId });
+    
+    const updatedFiles = getFiles();
+    setFiles(updatedFiles);
+    updateStats(updatedFiles);
+    
+    return shareId;
   };
+
+  const filteredFiles = files.filter(file =>
+    file.name.toLowerCase().includes(search.toLowerCase())
+  );
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600" />
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-3xl mx-auto">
-        <div className="bg-white rounded-lg shadow-md p-8">
-          <h1 className="text-2xl font-bold text-gray-900 mb-6">📁 Upload File</h1>
-
-          {/* Upload Area */}
-          <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
-            <input
-              type="file"
-              ref={fileInputRef}
-              onChange={handleFileChange}
-              className="hidden"
-              id="file-upload"
+    <div className="flex min-h-screen bg-gray-50">
+      <Sidebar />
+      
+      <div className="flex-1 lg:ml-64">
+        <Header title="Dashboard" />
+        
+        <main className="p-6">
+          {/* Stats */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <StatsCard
+              title="Total File"
+              value={stats.totalFiles}
+              icon={<FolderOpen size={20} />}
             />
-            <label
-              htmlFor="file-upload"
-              className="cursor-pointer inline-block px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
-            >
-              Pilih File
-            </label>
-
-            {file && (
-              <div className="mt-4">
-                <p className="text-sm text-gray-700">
-                  📄 {file.name} ({(file.size / 1024 / 1024).toFixed(2)} MB)
-                </p>
-                <button
-                  onClick={handleUpload}
-                  disabled={uploading}
-                  className="mt-4 px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 transition"
-                >
-                  {uploading ? "⏳ Uploading..." : "⬆️ Upload"}
-                </button>
-              </div>
-            )}
+            <StatsCard
+              title="Total Storage"
+              value={`${(stats.totalSize / 1024 / 1024).toFixed(1)} MB`}
+              icon={<HardDrive size={20} />}
+              subtitle={`${stats.totalFiles} file`}
+            />
+            <StatsCard
+              title="File Dibagikan"
+              value={stats.totalShares}
+              icon={<Share2 size={20} />}
+            />
+            <StatsCard
+              title="Upload"
+              value="+ Tambah"
+              icon={<Upload size={20} />}
+              subtitle="Klik untuk upload"
+            />
           </div>
 
-          {/* Hasil Upload */}
-          {uploadedUrl && (
-            <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded-lg">
-              <p className="text-green-700 font-medium">✅ Upload sukses!</p>
-              <p className="text-sm break-all mt-2 text-gray-600">
-                URL:{" "}
-                <a
-                  href={uploadedUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-blue-600 hover:underline"
-                >
-                  {uploadedUrl}
-                </a>
-              </p>
+          {/* Upload Area */}
+          <div className="mb-6">
+            <FileUploader onUpload={handleUpload} />
+          </div>
 
-              <button
-                onClick={handleCreateShareLink}
-                className="mt-4 px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition"
-              >
-                🔗 Buat Share Link
-              </button>
-
-              {shareUrl && (
-                <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                  <p className="text-blue-700 font-medium">🔗 Link Share:</p>
-                  <div className="flex gap-2 mt-2">
-                    <input
-                      type="text"
-                      value={shareUrl}
-                      readOnly
-                      className="flex-1 p-2 border rounded bg-white text-sm"
-                    />
-                    <button
-                      onClick={() => copyToClipboard(shareUrl)}
-                      className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition"
-                    >
-                      Copy
-                    </button>
-                  </div>
-                </div>
-              )}
+          {/* Toolbar */}
+          <div className="flex items-center justify-between gap-4 mb-4">
+            <div className="flex-1 max-w-sm">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                <input
+                  type="text"
+                  placeholder="Cari file..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                />
+              </div>
             </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setView("list")}
+                className={`p-2 rounded-lg transition-colors ${
+                  view === "list" ? "bg-blue-100 text-blue-600" : "text-gray-400 hover:bg-gray-100"
+                }`}
+              >
+                <List size={20} />
+              </button>
+              <button
+                onClick={() => setView("grid")}
+                className={`p-2 rounded-lg transition-colors ${
+                  view === "grid" ? "bg-blue-100 text-blue-600" : "text-gray-400 hover:bg-gray-100"
+                }`}
+              >
+                <Grid3X3 size={20} />
+              </button>
+            </div>
+          </div>
+
+          {/* File List */}
+          {view === "list" ? (
+            <FileList
+              files={filteredFiles}
+              onDelete={handleDelete}
+              onShare={(file) => {
+                setSelectedFile(file);
+                setIsShareModalOpen(true);
+              }}
+            />
+          ) : (
+            <FileGrid
+              files={filteredFiles}
+              onFileClick={(file) => {
+                setSelectedFile(file);
+                setIsShareModalOpen(true);
+              }}
+            />
           )}
-        </div>
+        </main>
       </div>
+
+      {/* Share Modal */}
+      <ShareModal
+        file={selectedFile}
+        isOpen={isShareModalOpen}
+        onClose={() => {
+          setIsShareModalOpen(false);
+          setSelectedFile(null);
+        }}
+        onCreateShare={handleCreateShare}
+      />
     </div>
   );
-                    }
+          }
