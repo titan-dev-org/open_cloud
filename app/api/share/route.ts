@@ -3,21 +3,22 @@ import { createShareLink } from "@/lib/db";
 
 export async function POST(request: NextRequest) {
   try {
-    const { fileId, password, expiry } = await request.json();
+    const { fileIds, password, expiry } = await request.json();
 
-    if (!fileId) {
+    if (!fileIds || !Array.isArray(fileIds) || fileIds.length === 0) {
       return NextResponse.json(
-        { error: "fileId required" },
+        { error: "fileIds required (array of file ids)" },
         { status: 400 }
       );
     }
 
-    const shareId = await createShareLink(fileId, password, expiry);
+    const shareId = await createShareLink(fileIds, password, expiry);
     const shareUrl = `${process.env.NEXT_PUBLIC_APP_URL}/s/${shareId}`;
 
     return NextResponse.json({
       shareId,
       shareUrl,
+      fileCount: fileIds.length,
     });
   } catch (error) {
     console.error("Create share error:", error);
@@ -26,4 +27,4 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+        }
