@@ -25,6 +25,7 @@ import { getFiles, saveFile, deleteFile, updateFile, createShareLink } from "@/l
 export default function DashboardPage() {
   const [files, setFiles] = useState<FileRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  const [uploading, setUploading] = useState(false); // Tambahkan state terpisah
   const [view, setView] = useState<"list" | "grid">("list");
   const [search, setSearch] = useState("");
   const [selectedFile, setSelectedFile] = useState<FileRecord | null>(null);
@@ -63,11 +64,11 @@ export default function DashboardPage() {
   };
 
   const handleUpload = async (uploadedFiles: File[]) => {
+    setUploading(true); // Set uploading true
     try {
       const uploaded: FileRecord[] = [];
       
       for (const file of uploadedFiles) {
-        // 1. Minta Presigned URL
         const response = await fetch("/api/upload", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -83,7 +84,6 @@ export default function DashboardPage() {
 
         const data = await response.json();
 
-        // 2. Upload file ke Filebase
         const uploadResponse = await fetch(data.presignedUrl, {
           method: "PUT",
           body: file,
@@ -94,7 +94,6 @@ export default function DashboardPage() {
           throw new Error("Gagal upload file");
         }
 
-        // 3. Simpan metadata ke localStorage
         const fileRecord: FileRecord = {
           id: data.fileKey,
           name: file.name,
@@ -109,7 +108,6 @@ export default function DashboardPage() {
         saveFile(fileRecord);
       }
 
-      // Update state
       const updatedFiles = getFiles();
       setFiles(updatedFiles);
       updateStats(updatedFiles);
@@ -118,6 +116,8 @@ export default function DashboardPage() {
     } catch (error) {
       console.error("Upload error:", error);
       toast.error("Gagal upload file: " + (error as Error).message);
+    } finally {
+      setUploading(false); // Set uploading false
     }
   };
 
@@ -162,7 +162,7 @@ export default function DashboardPage() {
         <Header title="Dashboard" />
         
         <main className="p-6">
-          {/* Stats */}
+          {/* Stats - tetap tampil meskipun uploading */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
             <StatsCard
               title="Total File"
@@ -182,18 +182,18 @@ export default function DashboardPage() {
             />
             <StatsCard
               title="Upload"
-              value="+ Tambah"
+              value={uploading ? "⏳" : "+ Tambah"}
               icon={<Upload size={20} />}
-              subtitle="Klik untuk upload"
+              subtitle={uploading ? "Sedang upload..." : "Klik untuk upload"}
             />
           </div>
 
-          {/* Upload Area */}
+          {/* Upload Area - disabled saat uploading */}
           <div className="mb-6">
             <FileUploader onUpload={handleUpload} />
           </div>
 
-          {/* Toolbar */}
+          {/* Toolbar - tetap stabil */}
           <div className="flex items-center justify-between gap-4 mb-4">
             <div className="flex-1 max-w-sm">
               <div className="relative">
@@ -227,7 +227,7 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* File List */}
+          {/* File List - tetap stabil */}
           {view === "list" ? (
             <FileList
               files={filteredFiles}
@@ -261,4 +261,4 @@ export default function DashboardPage() {
       />
     </div>
   );
-    }
+}
