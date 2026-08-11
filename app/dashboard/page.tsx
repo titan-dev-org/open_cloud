@@ -9,6 +9,7 @@ import {
   Search,
   List,
   Grid3X3,
+  RefreshCw,
 } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -19,10 +20,9 @@ import { StatsCard } from "@/components/ui/StatsCard";
 import { ShareModal } from "@/components/ui/ShareModal";
 import { Header } from "@/components/layout/Header";
 import { Sidebar } from "@/components/layout/Sidebar";
-import { FileRecord } from "@/lib/supabase"; // ← HANYA FileRecord
+import { FileRecord } from "@/lib/supabase";
 import { getFiles, saveFile, deleteFile, updateFile } from "@/lib/db";
 
-// Tipe Stats didefinisikan di sini
 interface Stats {
   totalFiles: number;
   totalSize: number;
@@ -43,19 +43,22 @@ export default function DashboardPage() {
     totalShares: 0,
   });
 
+  // Load files dari Supabase
+  const loadFiles = async () => {
+    setLoading(true);
+    try {
+      const storedFiles = await getFiles();
+      setFiles(storedFiles);
+      updateStats(storedFiles);
+    } catch (error) {
+      console.error("Failed to load files:", error);
+      toast.error("Gagal memuat file");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const loadFiles = async () => {
-      try {
-        const storedFiles = await getFiles();
-        setFiles(storedFiles);
-        updateStats(storedFiles);
-      } catch (error) {
-        console.error("Failed to load files:", error);
-        toast.error("Gagal memuat file");
-      } finally {
-        setLoading(false);
-      }
-    };
     loadFiles();
   }, []);
 
@@ -75,6 +78,7 @@ export default function DashboardPage() {
       const uploaded: FileRecord[] = [];
       
       for (const file of uploadedFiles) {
+        // 1. Minta Presigned URL
         const response = await fetch("/api/upload", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -85,11 +89,13 @@ export default function DashboardPage() {
         });
 
         if (!response.ok) {
-          throw new Error("Gagal mendapatkan URL upload");
+          const error = await response.json();
+          throw new Error(error.error || "Gagal mendapatkan URL upload");
         }
 
         const data = await response.json();
 
+        // 2. Upload ke Filebase
         const uploadResponse = await fetch(data.presignedUrl, {
           method: "PUT",
           body: file,
@@ -97,15 +103,16 @@ export default function DashboardPage() {
         });
 
         if (!uploadResponse.ok) {
-          throw new Error("Gagal upload file");
+          throw new Error("Gagal upload file ke storage");
         }
 
+        // 3. Simpan ke Supabase
         const fileRecord: FileRecord = {
           id: data.fileKey,
           name: file.name,
           key: data.fileKey,
           size: file.size,
-          mime_type: file.type,
+          mime_type: file.type || "application/octet-stream",
           uploaded_at: new Date().toISOString(),
           public_url: data.publicUrl,
         };
@@ -114,9 +121,8 @@ export default function DashboardPage() {
         await saveFile(fileRecord);
       }
 
-      const updatedFiles = await getFiles();
-      setFiles(updatedFiles);
-      updateStats(updatedFiles);
+      // Refresh files
+      await loadFiles();
 
       toast.success(`${uploaded.length} file berhasil diupload!`);
     } catch (error) {
@@ -128,16 +134,12 @@ export default function DashboardPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (confirm("Apakah Anda yakin ingin menghapus file ini?")) {
-      try {
-        await deleteFile(id);
-        const updatedFiles = await getFiles();
-        setFiles(updatedFiles);
-        updateStats(updatedFiles);
-        toast.success("File berhasil dihapus");
-      } catch (error) {
-        toast.error("Gagal menghapus file");
-      }
+    try {
+      await deleteFile(id);
+      await loadFiles();
+      toast.success("File berhasil dihapus");
+    } catch (error) {
+      toast.error("Gagal menghapus file");
     }
   };
 
@@ -149,14 +151,14 @@ export default function DashboardPage() {
     });
 
     if (!response.ok) {
-      throw new Error("Gagal membuat share link");
+      const error = await response.json();
+      throw new Error(error.error || "Gagal membuat share link");
     }
 
     const { shareId } = await response.json();
     
-    const updatedFiles = await getFiles();
-    setFiles(updatedFiles);
-    updateStats(updatedFiles);
+    // Refresh files
+    await loadFiles();
     
     return shareId;
   };
@@ -181,37 +183,44 @@ export default function DashboardPage() {
         <Header title="Dashboard" />
         
         <main className="p-6">
+          {/* Stats */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
             <StatsCard
               title="Total File"
               value={stats.totalFiles}
               icon={<FolderOpen size={20} />}
+              color="blue"
             />
             <StatsCard
               title="Total Storage"
               value={`${(stats.totalSize / 1024 / 1024).toFixed(1)} MB`}
               icon={<HardDrive size={20} />}
               subtitle={`${stats.totalFiles} file`}
+              color="green"
             />
             <StatsCard
               title="File Dibagikan"
               value={stats.totalShares}
               icon={<Share2 size={20} />}
+              color="purple"
             />
             <StatsCard
               title="Upload"
               value={uploading ? "⏳" : "+ Tambah"}
               icon={<Upload size={20} />}
               subtitle={uploading ? "Sedang upload..." : "Klik untuk upload"}
+              color="orange"
             />
           </div>
 
+          {/* Upload Area */}
           <div className="mb-6">
             <FileUploader onUpload={handleUpload} />
           </div>
 
-          <div className="flex items-center justify-between gap-4 mb-4">
-            <div className="flex-1 max-w-sm">
+          {/* Toolbar */}
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-4">
+            <div className="flex-1 w-full sm:max-w-sm">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
                 <input
@@ -219,30 +228,40 @@ export default function DashboardPage() {
                   placeholder="Cari file..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                  className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
                 />
               </div>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 w-full sm:w-auto">
               <button
-                onClick={() => setView("list")}
-                className={`p-2 rounded-lg transition-colors ${
-                  view === "list" ? "bg-blue-100 text-blue-600" : "text-gray-400 hover:bg-gray-100"
-                }`}
+                onClick={loadFiles}
+                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                title="Refresh"
               >
-                <List size={20} />
+                <RefreshCw size={20} />
               </button>
-              <button
-                onClick={() => setView("grid")}
-                className={`p-2 rounded-lg transition-colors ${
-                  view === "grid" ? "bg-blue-100 text-blue-600" : "text-gray-400 hover:bg-gray-100"
-                }`}
-              >
-                <Grid3X3 size={20} />
-              </button>
+              <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
+                <button
+                  onClick={() => setView("list")}
+                  className={`p-2 rounded-lg transition-colors ${
+                    view === "list" ? "bg-white shadow-sm text-blue-600" : "text-gray-400 hover:text-gray-600"
+                  }`}
+                >
+                  <List size={18} />
+                </button>
+                <button
+                  onClick={() => setView("grid")}
+                  className={`p-2 rounded-lg transition-colors ${
+                    view === "grid" ? "bg-white shadow-sm text-blue-600" : "text-gray-400 hover:text-gray-600"
+                  }`}
+                >
+                  <Grid3X3 size={18} />
+                </button>
+              </div>
             </div>
           </div>
 
+          {/* File List / Grid */}
           {view === "list" ? (
             <FileList
               files={filteredFiles}
@@ -259,11 +278,17 @@ export default function DashboardPage() {
                 setSelectedFile(file);
                 setIsShareModalOpen(true);
               }}
+              onDelete={handleDelete}
+              onShare={(file) => {
+                setSelectedFile(file);
+                setIsShareModalOpen(true);
+              }}
             />
           )}
         </main>
       </div>
 
+      {/* Share Modal */}
       <ShareModal
         file={selectedFile}
         isOpen={isShareModalOpen}
