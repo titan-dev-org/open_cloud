@@ -6,7 +6,6 @@ import {
   FileVideo,
   FileAudio,
   FileText,
-  FilePdf,
   FileArchive,
   FileSpreadsheet,
   FileCode,
@@ -31,8 +30,8 @@ export function FileIcon({ mimeType, className = "w-10 h-10" }: FileIconProps) {
     // Audio
     if (mimeType.startsWith("audio/")) return FileAudio;
     
-    // PDF
-    if (mimeType === "application/pdf") return FilePdf;
+    // PDF - gunakan FileText atau FileType sebagai ganti
+    if (mimeType === "application/pdf") return FileType;
     
     // Archive/ZIP
     if (mimeType.includes("zip") || 
@@ -70,4 +69,4 @@ export function FileIcon({ mimeType, className = "w-10 h-10" }: FileIconProps) {
 
   const Icon = getIcon();
   return <Icon className={className} />;
-}
+        }
