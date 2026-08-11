@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { X, Copy, Check, Calendar, Lock, Link as LinkIcon, Eye, EyeOff } from "lucide-react";
-import { FileRecord } from "@/lib/supabase";
+import { FileRecord } from "@/lib/supabase"; // ← PERBAIKAN INI
 import toast from "react-hot-toast";
 
 interface ShareModalProps {
@@ -280,4 +280,4 @@ export function ShareModal({ file, isOpen, onClose, onCreateShare }: ShareModalP
       </div>
     </div>
   );
-    }
+            }
