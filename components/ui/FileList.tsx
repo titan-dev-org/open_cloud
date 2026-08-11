@@ -9,6 +9,8 @@ import {
   Copy,
   Check,
   FolderOpen,
+  CheckSquare,
+  Square,
 } from "lucide-react";
 import { FileRecord } from "@/lib/supabase";
 import { FileIcon } from "./FileIcon";
@@ -18,9 +20,19 @@ interface FileListProps {
   files: FileRecord[];
   onDelete: (id: string) => void;
   onShare: (file: FileRecord) => void;
+  isMultiSelect?: boolean;
+  selectedFiles?: Set<string>;
+  onToggleSelect?: (fileId: string) => void;
 }
 
-export function FileList({ files, onDelete, onShare }: FileListProps) {
+export function FileList({ 
+  files, 
+  onDelete, 
+  onShare,
+  isMultiSelect = false,
+  selectedFiles = new Set(),
+  onToggleSelect,
+}: FileListProps) {
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
   const formatSize = (bytes: number) => {
@@ -57,6 +69,13 @@ export function FileList({ files, onDelete, onShare }: FileListProps) {
     }
   };
 
+  const handleToggleSelect = (fileId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onToggleSelect) {
+      onToggleSelect(fileId);
+    }
+  };
+
   if (files.length === 0) {
     return (
       <div className="text-center py-16 bg-white rounded-xl border border-gray-200">
@@ -75,6 +94,26 @@ export function FileList({ files, onDelete, onShare }: FileListProps) {
         <table className="w-full">
           <thead className="bg-gray-50 border-b border-gray-200">
             <tr>
+              {isMultiSelect && (
+                <th className="w-10 px-2 py-3 text-center">
+                  <button
+                    onClick={() => {
+                      if (selectedFiles.size === files.length) {
+                        files.forEach(f => onToggleSelect?.(f.id));
+                      } else {
+                        files.forEach(f => onToggleSelect?.(f.id));
+                      }
+                    }}
+                    className="text-gray-400 hover:text-gray-600"
+                  >
+                    {selectedFiles.size === files.length ? (
+                      <CheckSquare size={16} />
+                    ) : (
+                      <Square size={16} />
+                    )}
+                  </button>
+                </th>
+              )}
               <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Nama File
               </th>
@@ -93,80 +132,101 @@ export function FileList({ files, onDelete, onShare }: FileListProps) {
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
-            {files.map((file) => (
-              <tr key={file.id} className="hover:bg-gray-50 transition-colors group">
-                <td className="px-6 py-4">
-                  <div className="flex items-center gap-3">
-                    <FileIcon mimeType={file.mime_type} className="w-8 h-8 text-gray-500 flex-shrink-0" />
-                    <div className="min-w-0">
-                      <p className="font-medium text-gray-900 truncate max-w-[120px] sm:max-w-[200px]">
-                        {file.name}
-                      </p>
-                      {file.share_id && (
-                        <span className="inline-flex items-center gap-1 text-xs text-green-600 bg-green-50 px-2 py-0.5 rounded-full">
-                          <LinkIcon size={10} />
-                          Dibagikan
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </td>
-                <td className="px-6 py-4 text-sm text-gray-600 whitespace-nowrap">
-                  {formatSize(file.size)}
-                </td>
-                <td className="px-6 py-4 text-sm text-gray-500 whitespace-nowrap">
-                  <span className="px-2 py-1 bg-gray-100 rounded text-xs">
-                    {file.mime_type.split("/")[1] || file.mime_type}
-                  </span>
-                </td>
-                <td className="px-6 py-4 text-sm text-gray-500 whitespace-nowrap">
-                  <div className="flex items-center gap-1">
-                    <Clock size={14} />
-                    {formatDate(file.uploaded_at)}
-                  </div>
-                </td>
-                <td className="px-6 py-4 text-right">
-                  <div className="flex items-center justify-end gap-0.5 sm:gap-1">
-                    {file.share_id && (
+            {files.map((file) => {
+              const isSelected = selectedFiles.has(file.id);
+              return (
+                <tr 
+                  key={file.id} 
+                  className={`hover:bg-gray-50 transition-colors group ${isSelected ? "bg-blue-50/50" : ""}`}
+                  onClick={() => isMultiSelect && onToggleSelect?.(file.id)}
+                >
+                  {isMultiSelect && (
+                    <td className="px-2 py-4 text-center">
                       <button
-                        onClick={() => copyToClipboard(`${process.env.NEXT_PUBLIC_APP_URL}/s/${file.share_id}`, file.id)}
-                        className="p-2 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
-                        title="Salin link share"
+                        onClick={(e) => handleToggleSelect(file.id, e)}
+                        className="text-gray-400 hover:text-blue-600"
                       >
-                        {copiedId === file.id ? (
-                          <Check size={18} className="text-green-600" />
+                        {isSelected ? (
+                          <CheckSquare size={16} className="text-blue-600" />
                         ) : (
-                          <Copy size={18} />
+                          <Square size={16} />
                         )}
                       </button>
-                    )}
-                    <button
-                      onClick={() => onShare(file)}
-                      className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                      title="Buat link share"
-                    >
-                      <LinkIcon size={18} />
-                    </button>
-                    <a
-                      href={file.public_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="p-2 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
-                      title="Download file"
-                    >
-                      <Download size={18} />
-                    </a>
-                    <button
-                      onClick={() => onDelete(file.id)}
-                      className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                      title="Hapus file"
-                    >
-                      <Trash2 size={18} />
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
+                    </td>
+                  )}
+                  <td className="px-6 py-4">
+                    <div className="flex items-center gap-3">
+                      <FileIcon mimeType={file.mime_type} className="w-8 h-8 text-gray-500 flex-shrink-0" />
+                      <div className="min-w-0">
+                        <p className="font-medium text-gray-900 truncate max-w-[120px] sm:max-w-[200px]">
+                          {file.name}
+                        </p>
+                        {file.share_id && (
+                          <span className="inline-flex items-center gap-1 text-xs text-green-600 bg-green-50 px-2 py-0.5 rounded-full">
+                            <LinkIcon size={10} />
+                            Dibagikan
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 text-sm text-gray-600 whitespace-nowrap">
+                    {formatSize(file.size)}
+                  </td>
+                  <td className="px-6 py-4 text-sm text-gray-500 whitespace-nowrap">
+                    <span className="px-2 py-1 bg-gray-100 rounded text-xs">
+                      {file.mime_type.split("/")[1] || file.mime_type}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 text-sm text-gray-500 whitespace-nowrap">
+                    <div className="flex items-center gap-1">
+                      <Clock size={14} />
+                      {formatDate(file.uploaded_at)}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 text-right">
+                    <div className="flex items-center justify-end gap-0.5 sm:gap-1">
+                      {file.share_id && (
+                        <button
+                          onClick={() => copyToClipboard(`${process.env.NEXT_PUBLIC_APP_URL}/s/${file.share_id}`, file.id)}
+                          className="p-2 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                          title="Salin link share"
+                        >
+                          {copiedId === file.id ? (
+                            <Check size={18} className="text-green-600" />
+                          ) : (
+                            <Copy size={18} />
+                          )}
+                        </button>
+                      )}
+                      <button
+                        onClick={() => onShare(file)}
+                        className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                        title="Buat link share"
+                      >
+                        <LinkIcon size={18} />
+                      </button>
+                      <a
+                        href={file.public_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="p-2 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
+                        title="Download file"
+                      >
+                        <Download size={18} />
+                      </a>
+                      <button
+                        onClick={() => onDelete(file.id)}
+                        className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                        title="Hapus file"
+                      >
+                        <Trash2 size={18} />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
@@ -181,4 +241,4 @@ export function FileList({ files, onDelete, onShare }: FileListProps) {
       </div>
     </div>
   );
-          }
+    }
