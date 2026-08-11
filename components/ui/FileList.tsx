@@ -99,7 +99,7 @@ export function FileList({ files, onDelete, onShare }: FileListProps) {
                   <div className="flex items-center gap-3">
                     <FileIcon mimeType={file.mime_type} className="w-8 h-8 text-gray-500 flex-shrink-0" />
                     <div className="min-w-0">
-                      <p className="font-medium text-gray-900 truncate max-w-[200px]">
+                      <p className="font-medium text-gray-900 truncate max-w-[120px] sm:max-w-[200px]">
                         {file.name}
                       </p>
                       {file.share_id && (
@@ -126,7 +126,7 @@ export function FileList({ files, onDelete, onShare }: FileListProps) {
                   </div>
                 </td>
                 <td className="px-6 py-4 text-right">
-                  <div className="flex items-center justify-end gap-1">
+                  <div className="flex items-center justify-end gap-0.5 sm:gap-1">
                     {file.share_id && (
                       <button
                         onClick={() => copyToClipboard(`${process.env.NEXT_PUBLIC_APP_URL}/s/${file.share_id}`, file.id)}
@@ -181,4 +181,4 @@ export function FileList({ files, onDelete, onShare }: FileListProps) {
       </div>
     </div>
   );
-    }
+        }
