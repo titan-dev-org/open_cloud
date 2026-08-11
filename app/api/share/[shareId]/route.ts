@@ -10,7 +10,10 @@ export async function GET(
 ) {
   try {
     const { shareId } = await params;
+    console.log("🔍 Looking for shareId:", shareId); // Debug
+
     const shareData = getShareData(shareId);
+    console.log("📦 Share data:", shareData); // Debug
 
     if (!shareData) {
       return NextResponse.json(
@@ -21,7 +24,6 @@ export async function GET(
 
     const { fileId } = shareData;
 
-    // Generate Presigned URL untuk download
     const command = new GetObjectCommand({
       Bucket: BUCKET_NAME,
       Key: fileId,
@@ -36,10 +38,10 @@ export async function GET(
       fileKey: fileId,
     });
   } catch (error) {
-    console.error("Share error:", error);
+    console.error("❌ Share error:", error);
     return NextResponse.json(
       { error: "Failed to get file" },
       { status: 500 }
     );
   }
-      }
+}
