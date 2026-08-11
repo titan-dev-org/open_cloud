@@ -8,7 +8,7 @@ import {
   Clock, 
   Copy, 
   Check,
-  Trash2,
+  Trash2, // ← PASTIKAN INI ADA
 } from "lucide-react";
 import { FileRecord } from "@/lib/supabase";
 import { FileIcon } from "./FileIcon";
@@ -94,7 +94,6 @@ export function FileGrid({ files, onFileClick, onDelete, onShare }: FileGridProp
           onClick={() => onFileClick(file)}
           className="bg-white rounded-xl border border-gray-200 p-4 text-center hover:shadow-lg hover:border-blue-300 hover:-translate-y-0.5 transition-all cursor-pointer group relative"
         >
-          {/* Badge status */}
           <div className="relative">
             <FileIcon mimeType={file.mime_type} className="w-14 h-14 mx-auto text-gray-500 group-hover:text-blue-500 transition-colors" />
             
@@ -118,7 +117,6 @@ export function FileGrid({ files, onFileClick, onDelete, onShare }: FileGridProp
             </span>
           </div>
           
-          {/* Aksi - muncul saat hover */}
           <div className="flex items-center justify-center gap-1 mt-3 opacity-0 group-hover:opacity-100 transition-opacity">
             {file.share_id && (
               <button
@@ -166,4 +164,4 @@ export function FileGrid({ files, onFileClick, onDelete, onShare }: FileGridProp
       ))}
     </div>
   );
-  }
+}
