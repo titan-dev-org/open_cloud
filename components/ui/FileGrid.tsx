@@ -8,7 +8,7 @@ import {
   Clock, 
   Copy, 
   Check,
-  MoreVertical,
+  Trash2,
 } from "lucide-react";
 import { FileRecord } from "@/lib/supabase";
 import { FileIcon } from "./FileIcon";
