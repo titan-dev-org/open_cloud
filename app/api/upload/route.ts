@@ -22,7 +22,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Sanitasi nama file
     const sanitized = filename.replace(/[^a-zA-Z0-9.\-_]/g, "");
     const fileExt = sanitized.split(".").pop();
     const key = `uploads/${randomUUID()}.${fileExt}`;
@@ -63,4 +62,4 @@ export async function OPTIONS() {
       "Access-Control-Allow-Headers": "Content-Type",
     },
   });
-  }
+      }
