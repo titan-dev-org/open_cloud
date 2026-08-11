@@ -19,8 +19,15 @@ import { StatsCard } from "@/components/ui/StatsCard";
 import { ShareModal } from "@/components/ui/ShareModal";
 import { Header } from "@/components/layout/Header";
 import { Sidebar } from "@/components/layout/Sidebar";
-import { FileRecord, Stats } from "@/lib/supabase"; // ← IMPORT DARI SINI
+import { FileRecord } from "@/lib/supabase"; // ← HANYA FileRecord
 import { getFiles, saveFile, deleteFile, updateFile } from "@/lib/db";
+
+// Tipe Stats didefinisikan di sini
+interface Stats {
+  totalFiles: number;
+  totalSize: number;
+  totalShares: number;
+}
 
 export default function DashboardPage() {
   const [files, setFiles] = useState<FileRecord[]>([]);
@@ -268,4 +275,4 @@ export default function DashboardPage() {
       />
     </div>
   );
-  }
+    }
