@@ -1,5 +1,9 @@
 {
   "buildCommand": "npm run build",
   "outputDirectory": ".next",
-  "framework": "nextjs"
+  "framework": "nextjs",
+  "env": {
+    "FILEBASE_ENDPOINT": "https://s3.filebase.io",
+    "FILEBASE_REGION": "auto"
+  }
 }
