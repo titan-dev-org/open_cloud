@@ -1,7 +1,7 @@
 "use client";
 
 import { FolderOpen, Link as LinkIcon, Download, Clock } from "lucide-react";
-import { FileRecord } from "@/types";
+import { FileRecord } from "@/lib/supabase";
 import { FileIcon } from "./FileIcon";
 
 interface FileGridProps {
@@ -53,10 +53,9 @@ export function FileGrid({ files, onFileClick }: FileGridProps) {
           className="bg-white rounded-xl border border-gray-200 p-4 text-center hover:shadow-lg hover:border-blue-300 hover:-translate-y-0.5 transition-all cursor-pointer group"
         >
           <div className="relative">
-            <FileIcon mimeType={file.mimeType} className="w-14 h-14 mx-auto text-gray-500 group-hover:text-blue-500 transition-colors" />
+            <FileIcon mimeType={file.mime_type} className="w-14 h-14 mx-auto text-gray-500 group-hover:text-blue-500 transition-colors" />
             
-            {/* Badge status */}
-            {file.shareId && (
+            {file.share_id && (
               <div className="absolute -top-1 -right-1 bg-green-500 rounded-full w-3 h-3 border-2 border-white" title="Telah dibagikan" />
             )}
           </div>
@@ -72,17 +71,16 @@ export function FileGrid({ files, onFileClick }: FileGridProps) {
             <span className="text-xs text-gray-300">•</span>
             <span className="text-xs text-gray-400 flex items-center gap-0.5">
               <Clock size={10} />
-              {formatDate(file.uploadedAt)}
+              {formatDate(file.uploaded_at)}
             </span>
           </div>
           
-          {/* Tombol aksi muncul saat hover */}
           <div className="flex items-center justify-center gap-1 mt-3 opacity-0 group-hover:opacity-100 transition-opacity">
-            {file.shareId && (
+            {file.share_id && (
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  navigator.clipboard.writeText(`${process.env.NEXT_PUBLIC_APP_URL}/s/${file.shareId}`);
+                  navigator.clipboard.writeText(`${process.env.NEXT_PUBLIC_APP_URL}/s/${file.share_id}`);
                 }}
                 className="p-1.5 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
                 title="Salin link"
@@ -91,7 +89,7 @@ export function FileGrid({ files, onFileClick }: FileGridProps) {
               </button>
             )}
             <a
-              href={file.publicUrl}
+              href={file.public_url}
               target="_blank"
               rel="noopener noreferrer"
               onClick={(e) => e.stopPropagation()}
@@ -105,4 +103,4 @@ export function FileGrid({ files, onFileClick }: FileGridProps) {
       ))}
     </div>
   );
-      }
+          }
