@@ -31,6 +31,20 @@ export async function saveFile(file: FileRecord): Promise<FileRecord> {
   return data;
 }
 
+export async function saveMultipleFiles(files: FileRecord[]): Promise<FileRecord[]> {
+  const { data, error } = await supabase
+    .from('files')
+    .insert(files)
+    .select();
+
+  if (error) {
+    console.error('Error saving files:', error);
+    throw error;
+  }
+
+  return data || [];
+}
+
 export async function deleteFile(id: string): Promise<void> {
   const { error } = await supabase
     .from('files')
@@ -74,17 +88,30 @@ export async function getFile(id: string): Promise<FileRecord | null> {
   return data;
 }
 
-// ============ SHARE OPERATIONS ============
+export async function getFilesByIds(ids: string[]): Promise<FileRecord[]> {
+  const { data, error } = await supabase
+    .from('files')
+    .select('*')
+    .in('id', ids)
+    .order('uploaded_at', { ascending: false });
+
+  if (error) {
+    console.error('Error fetching files by ids:', error);
+    return [];
+  }
+
+  return data || [];
+}
+
+// ============ SHARE OPERATIONS (MULTI-FILE) ============
 
 export async function createShareLink(
-  fileId: string, 
+  fileIds: string[], 
   password?: string, 
   expiry?: string
 ): Promise<string> {
-  // Generate share ID
   const shareId = Math.random().toString(36).substring(2, 10);
   
-  // Calculate expiry date
   let expiresAt = null;
   if (expiry && expiry !== 'never') {
     const days = parseInt(expiry);
@@ -93,12 +120,12 @@ export async function createShareLink(
     expiresAt = date.toISOString();
   }
 
-  // Insert share record
+  // Simpan ke tabel shares dengan array file_ids
   const { error: shareError } = await supabase
     .from('shares')
     .insert([{
       id: shareId,
-      file_id: fileId,
+      file_ids: fileIds, // array of file ids
       password: password || null,
       expiry: expiry || 'never',
       expires_at: expiresAt,
@@ -110,24 +137,25 @@ export async function createShareLink(
     throw shareError;
   }
 
-  // Update file with share_id
-  await updateFile(fileId, { 
-    share_id: shareId,
-    share_password: password,
-    share_expiry: expiry,
-    share_created_at: new Date().toISOString(),
-  });
+  // Update each file with share_id
+  for (const fileId of fileIds) {
+    await updateFile(fileId, { 
+      share_id: shareId,
+      share_password: password,
+      share_expiry: expiry,
+      share_created_at: new Date().toISOString(),
+    });
+  }
 
   return shareId;
 }
 
 export async function getShareData(shareId: string): Promise<{
-  fileId: string;
+  fileIds: string[];
   password?: string;
   expiry?: string;
-  file?: FileRecord;
+  files?: FileRecord[];
 } | null> {
-  // Get share record
   const { data: share, error: shareError } = await supabase
     .from('shares')
     .select('*')
@@ -139,46 +167,46 @@ export async function getShareData(shareId: string): Promise<{
     return null;
   }
 
-  // Check expiry
   if (share.expires_at) {
     const expiryDate = new Date(share.expires_at);
     if (expiryDate < new Date()) {
-      return null; // Expired
+      return null;
     }
   }
 
-  // Check max downloads
   if (share.max_downloads && share.downloads >= share.max_downloads) {
-    return null; // Max downloads reached
-  }
-
-  // Get file data
-  const { data: file, error: fileError } = await supabase
-    .from('files')
-    .select('*')
-    .eq('id', share.file_id)
-    .single();
-
-  if (fileError || !file) {
-    console.error('File not found:', fileError);
     return null;
   }
 
+  // Get all files
+  const files = await getFilesByIds(share.file_ids || []);
+
   return {
-    fileId: share.file_id,
+    fileIds: share.file_ids || [],
     password: share.password,
     expiry: share.expiry,
-    file,
+    files,
   };
 }
 
 export async function incrementDownloads(shareId: string): Promise<void> {
-  const { error } = await supabase
+  const { data: share, error: getError } = await supabase
     .from('shares')
-    .update({ downloads: supabase.rpc('increment', { row_id: shareId }) })
+    .select('downloads')
+    .eq('id', shareId)
+    .single();
+
+  if (getError || !share) {
+    console.error('Error getting share:', getError);
+    return;
+  }
+
+  const { error: updateError } = await supabase
+    .from('shares')
+    .update({ downloads: share.downloads + 1 })
     .eq('id', shareId);
 
-  if (error) {
-    console.error('Error incrementing downloads:', error);
+  if (updateError) {
+    console.error('Error incrementing downloads:', updateError);
   }
     }
