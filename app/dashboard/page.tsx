@@ -10,7 +10,9 @@ import {
   List,
   Grid3X3,
   RefreshCw,
-  ChevronDown,
+  CheckSquare,
+  Square,
+  Link as LinkIcon,
 } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -43,6 +45,10 @@ export default function DashboardPage() {
     totalSize: 0,
     totalShares: 0,
   });
+
+  // Multi-select state
+  const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set());
+  const [isMultiSelectMode, setIsMultiSelectMode] = useState(false);
 
   const loadFiles = async () => {
     setLoading(true);
@@ -140,11 +146,11 @@ export default function DashboardPage() {
     }
   };
 
-  const handleCreateShare = async (fileId: string, password?: string, expiry?: string) => {
+  const handleCreateShare = async (fileIds: string[], password?: string, expiry?: string) => {
     const response = await fetch("/api/share", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ fileId, password, expiry }),
+      body: JSON.stringify({ fileIds, password, expiry }),
     });
 
     if (!response.ok) {
@@ -152,18 +158,55 @@ export default function DashboardPage() {
       throw new Error(error.error || "Gagal membuat share link");
     }
 
-    const { shareId } = await response.json();
+    const { shareId, shareUrl, fileCount } = await response.json();
     
     const refreshedFiles = await getFiles();
     setFiles(refreshedFiles);
     updateStats(refreshedFiles);
     
+    // Clear selection
+    setSelectedFiles(new Set());
+    setIsMultiSelectMode(false);
+    
     return shareId;
+  };
+
+  // Toggle file selection
+  const toggleSelectFile = (fileId: string) => {
+    const newSelection = new Set(selectedFiles);
+    if (newSelection.has(fileId)) {
+      newSelection.delete(fileId);
+    } else {
+      newSelection.add(fileId);
+    }
+    setSelectedFiles(newSelection);
+  };
+
+  // Select all files
+  const selectAllFiles = () => {
+    if (selectedFiles.size === filteredFiles.length) {
+      setSelectedFiles(new Set());
+    } else {
+      setSelectedFiles(new Set(filteredFiles.map(f => f.id)));
+    }
   };
 
   const filteredFiles = files.filter(file =>
     file.name.toLowerCase().includes(search.toLowerCase())
   );
+
+  const handleShareSelected = () => {
+    const selectedFileObjects = files.filter(f => selectedFiles.has(f.id));
+    if (selectedFileObjects.length === 0) {
+      toast.error("Pilih minimal 1 file");
+      return;
+    }
+    // Buka share modal dengan multiple files
+    // Kita kirim fileIds ke ShareModal
+    // Untuk sementara kita pilih file pertama sebagai selected
+    setSelectedFile(selectedFileObjects[0]);
+    setIsShareModalOpen(true);
+  };
 
   if (loading) {
     return (
@@ -181,7 +224,7 @@ export default function DashboardPage() {
         <Header title="Dashboard" />
         
         <main className="p-3 sm:p-4 md:p-6 max-w-full">
-          {/* Stats - Responsive Grid */}
+          {/* Stats */}
           <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 md:gap-4 mb-3 sm:mb-4 md:mb-6">
             <StatsCard
               title="Total File"
@@ -216,10 +259,10 @@ export default function DashboardPage() {
             <FileUploader onUpload={handleUpload} />
           </div>
 
-          {/* Toolbar - Responsive */}
+          {/* Toolbar dengan Multi-Select */}
           <div className="flex flex-col xs:flex-row items-start xs:items-center justify-between gap-2 xs:gap-3 sm:gap-4 mb-3 sm:mb-4">
-            <div className="w-full xs:max-w-[200px] sm:max-w-xs">
-              <div className="relative">
+            <div className="flex items-center gap-2 w-full xs:w-auto">
+              <div className="relative flex-1 xs:max-w-[200px] sm:max-w-xs">
                 <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" size={15} />
                 <input
                   type="text"
@@ -229,8 +272,42 @@ export default function DashboardPage() {
                   className="w-full pl-8 pr-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
                 />
               </div>
+              
+              {/* Multi-select toggle */}
+              <button
+                onClick={() => {
+                  setIsMultiSelectMode(!isMultiSelectMode);
+                  if (isMultiSelectMode) setSelectedFiles(new Set());
+                }}
+                className={`p-1.5 sm:p-2 rounded-lg transition-colors ${
+                  isMultiSelectMode ? "bg-blue-100 text-blue-600" : "text-gray-400 hover:bg-gray-100"
+                }`}
+                title="Multi-select mode"
+              >
+                <CheckSquare size={16} className="sm:w-4 sm:h-4" />
+              </button>
             </div>
+
             <div className="flex items-center gap-1.5 sm:gap-2 w-full xs:w-auto">
+              {isMultiSelectMode && selectedFiles.size > 0 && (
+                <button
+                  onClick={handleShareSelected}
+                  className="px-3 py-1.5 sm:px-4 sm:py-2 bg-blue-600 text-white text-xs sm:text-sm rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-1.5"
+                >
+                  <LinkIcon size={14} />
+                  Share {selectedFiles.size} file
+                </button>
+              )}
+              
+              {isMultiSelectMode && filteredFiles.length > 0 && (
+                <button
+                  onClick={selectAllFiles}
+                  className="p-1.5 sm:p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors text-xs sm:text-sm"
+                >
+                  {selectedFiles.size === filteredFiles.length ? "Deselect" : "Select All"}
+                </button>
+              )}
+
               <button
                 onClick={loadFiles}
                 className="p-1.5 sm:p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
@@ -238,6 +315,7 @@ export default function DashboardPage() {
               >
                 <RefreshCw size={15} className="sm:w-4 sm:h-4" />
               </button>
+              
               <div className="flex items-center gap-0.5 bg-gray-100 rounded-lg p-0.5 sm:p-1">
                 <button
                   onClick={() => setView("list")}
@@ -259,7 +337,7 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* File List / Grid */}
+          {/* File List / Grid dengan Multi-Select */}
           <div className="w-full overflow-x-hidden">
             {view === "list" ? (
               <FileList
@@ -269,33 +347,46 @@ export default function DashboardPage() {
                   setSelectedFile(file);
                   setIsShareModalOpen(true);
                 }}
+                isMultiSelect={isMultiSelectMode}
+                selectedFiles={selectedFiles}
+                onToggleSelect={toggleSelectFile}
               />
             ) : (
               <FileGrid
                 files={filteredFiles}
                 onFileClick={(file) => {
-                  setSelectedFile(file);
-                  setIsShareModalOpen(true);
+                  if (isMultiSelectMode) {
+                    toggleSelectFile(file.id);
+                  } else {
+                    setSelectedFile(file);
+                    setIsShareModalOpen(true);
+                  }
                 }}
                 onDelete={handleDelete}
                 onShare={(file) => {
                   setSelectedFile(file);
                   setIsShareModalOpen(true);
                 }}
+                isMultiSelect={isMultiSelectMode}
+                selectedFiles={selectedFiles}
+                onToggleSelect={toggleSelectFile}
               />
             )}
           </div>
         </main>
       </div>
 
+      {/* Share Modal - modified untuk multi-file */}
       <ShareModal
         file={selectedFile}
+        files={selectedFiles.size > 0 ? files.filter(f => selectedFiles.has(f.id)) : []}
         isOpen={isShareModalOpen}
         onClose={() => {
           setIsShareModalOpen(false);
           setSelectedFile(null);
         }}
         onCreateShare={handleCreateShare}
+        isMultiFile={selectedFiles.size > 1}
       />
     </div>
   );
