@@ -10,6 +10,7 @@ import {
   List,
   Grid3X3,
   RefreshCw,
+  ChevronDown,
 } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -153,7 +154,6 @@ export default function DashboardPage() {
 
     const { shareId } = await response.json();
     
-    // Refresh files secara manual agar share_id langsung muncul
     const refreshedFiles = await getFiles();
     setFiles(refreshedFiles);
     updateStats(refreshedFiles);
@@ -180,69 +180,72 @@ export default function DashboardPage() {
       <div className="flex-1 lg:ml-64 min-w-0">
         <Header title="Dashboard" />
         
-        <main className="p-4 sm:p-6 max-w-full">
-          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-4 sm:mb-6">
+        <main className="p-3 sm:p-4 md:p-6 max-w-full">
+          {/* Stats - Responsive Grid */}
+          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 md:gap-4 mb-3 sm:mb-4 md:mb-6">
             <StatsCard
               title="Total File"
               value={stats.totalFiles}
-              icon={<FolderOpen size={18} className="sm:w-5 sm:h-5" />}
+              icon={<FolderOpen size={16} className="sm:w-4 sm:h-4 md:w-5 md:h-5" />}
               color="blue"
             />
             <StatsCard
-              title="Total Storage"
+              title="Storage"
               value={`${(stats.totalSize / 1024 / 1024).toFixed(1)} MB`}
-              icon={<HardDrive size={18} className="sm:w-5 sm:h-5" />}
+              icon={<HardDrive size={16} className="sm:w-4 sm:h-4 md:w-5 md:h-5" />}
               subtitle={`${stats.totalFiles} file`}
               color="green"
             />
             <StatsCard
-              title="File Dibagikan"
+              title="Dibagikan"
               value={stats.totalShares}
-              icon={<Share2 size={18} className="sm:w-5 sm:h-5" />}
+              icon={<Share2 size={16} className="sm:w-4 sm:h-4 md:w-5 md:h-5" />}
               color="purple"
             />
             <StatsCard
               title="Upload"
-              value={uploading ? "⏳" : "+ Tambah"}
-              icon={<Upload size={18} className="sm:w-5 sm:h-5" />}
-              subtitle={uploading ? "Sedang upload..." : "Klik untuk upload"}
+              value={uploading ? "⏳" : "+"}
+              icon={<Upload size={16} className="sm:w-4 sm:h-4 md:w-5 md:h-5" />}
+              subtitle={uploading ? "Uploading..." : "Tambah file"}
               color="orange"
             />
           </div>
 
-          <div className="mb-4 sm:mb-6">
+          {/* Upload Area */}
+          <div className="mb-3 sm:mb-4 md:mb-6">
             <FileUploader onUpload={handleUpload} />
           </div>
 
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4 mb-3 sm:mb-4">
-            <div className="w-full sm:max-w-xs">
+          {/* Toolbar - Responsive */}
+          <div className="flex flex-col xs:flex-row items-start xs:items-center justify-between gap-2 xs:gap-3 sm:gap-4 mb-3 sm:mb-4">
+            <div className="w-full xs:max-w-[200px] sm:max-w-xs">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" size={15} />
                 <input
                   type="text"
                   placeholder="Cari file..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                  className="w-full pl-8 pr-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
                 />
               </div>
             </div>
-            <div className="flex items-center gap-2 w-full sm:w-auto">
+            <div className="flex items-center gap-1.5 sm:gap-2 w-full xs:w-auto">
               <button
                 onClick={loadFiles}
-                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                className="p-1.5 sm:p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
                 title="Refresh"
               >
-                <RefreshCw size={18} />
+                <RefreshCw size={15} className="sm:w-4 sm:h-4" />
               </button>
-              <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
+              <div className="flex items-center gap-0.5 bg-gray-100 rounded-lg p-0.5 sm:p-1">
                 <button
                   onClick={() => setView("list")}
                   className={`p-1.5 rounded-lg transition-colors ${
                     view === "list" ? "bg-white shadow-sm text-blue-600" : "text-gray-400 hover:text-gray-600"
                   }`}
                 >
-                  <List size={16} />
+                  <List size={14} className="sm:w-4 sm:h-4" />
                 </button>
                 <button
                   onClick={() => setView("grid")}
@@ -250,12 +253,13 @@ export default function DashboardPage() {
                     view === "grid" ? "bg-white shadow-sm text-blue-600" : "text-gray-400 hover:text-gray-600"
                   }`}
                 >
-                  <Grid3X3 size={16} />
+                  <Grid3X3 size={14} className="sm:w-4 sm:h-4" />
                 </button>
               </div>
             </div>
           </div>
 
+          {/* File List / Grid */}
           <div className="w-full overflow-x-hidden">
             {view === "list" ? (
               <FileList
@@ -295,4 +299,4 @@ export default function DashboardPage() {
       />
     </div>
   );
-    }
+      }
