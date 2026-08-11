@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { X, Copy, Check, Calendar, Lock, Link as LinkIcon, Eye, EyeOff } from "lucide-react";
-import { FileRecord } from "@/lib/supabase"; // ← PERBAIKAN INI
+import { FileRecord } from "@/lib/supabase";
 import toast from "react-hot-toast";
 
 interface ShareModalProps {
@@ -21,7 +21,6 @@ export function ShareModal({ file, isOpen, onClose, onCreateShare }: ShareModalP
   const [expiry, setExpiry] = useState("7d");
   const [isCreating, setIsCreating] = useState(false);
 
-  // Reset state saat modal ditutup
   useEffect(() => {
     if (!isOpen) {
       setShareUrl(null);
@@ -101,14 +100,13 @@ export function ShareModal({ file, isOpen, onClose, onCreateShare }: ShareModalP
 
   return (
     <div 
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
       onClick={handleClose}
     >
       <div 
-        className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 relative max-h-[90vh] overflow-y-auto animate-in slide-in-from-bottom-4 duration-300"
+        className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 relative max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Close Button */}
         <button
           onClick={handleClose}
           disabled={loading}
@@ -117,7 +115,6 @@ export function ShareModal({ file, isOpen, onClose, onCreateShare }: ShareModalP
           <X size={20} />
         </button>
 
-        {/* Header */}
         <div className="flex items-center gap-3 mb-4">
           <div className="p-2 bg-blue-50 rounded-lg text-blue-600">
             <LinkIcon size={20} />
@@ -128,7 +125,6 @@ export function ShareModal({ file, isOpen, onClose, onCreateShare }: ShareModalP
           </div>
         </div>
         
-        {/* File Info */}
         <div className="bg-gray-50 rounded-lg p-4 mb-4 border border-gray-100">
           <div className="flex items-start gap-3">
             <div className="flex-1 min-w-0">
@@ -152,7 +148,6 @@ export function ShareModal({ file, isOpen, onClose, onCreateShare }: ShareModalP
           </div>
         </div>
 
-        {/* Hasil Share URL */}
         {shareUrl ? (
           <div className="space-y-4">
             <div className="flex items-center gap-2 p-3 bg-gray-50 rounded-lg border border-gray-200">
@@ -185,7 +180,7 @@ export function ShareModal({ file, isOpen, onClose, onCreateShare }: ShareModalP
                 onClick={() => {
                   setShareUrl(null);
                   setCopied(false);
-                  toast.info("Buat link share baru");
+                  toast.success("🔄 Siap buat link baru");
                 }}
                 className="py-2.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors font-medium"
               >
@@ -201,7 +196,6 @@ export function ShareModal({ file, isOpen, onClose, onCreateShare }: ShareModalP
           </div>
         ) : (
           <div className="space-y-4">
-            {/* Password Field */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">
                 <Lock size={14} className="inline mr-1.5" />
@@ -229,7 +223,6 @@ export function ShareModal({ file, isOpen, onClose, onCreateShare }: ShareModalP
               </p>
             </div>
 
-            {/* Expiry Field */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">
                 <Calendar size={14} className="inline mr-1.5" />
@@ -252,7 +245,6 @@ export function ShareModal({ file, isOpen, onClose, onCreateShare }: ShareModalP
               </select>
             </div>
 
-            {/* Create Button */}
             <button
               onClick={handleCreate}
               disabled={loading || isCreating}
@@ -271,7 +263,6 @@ export function ShareModal({ file, isOpen, onClose, onCreateShare }: ShareModalP
               )}
             </button>
 
-            {/* Info */}
             <div className="text-center text-xs text-gray-400">
               Link akan kadaluarsa sesuai masa berlaku yang dipilih
             </div>
@@ -280,4 +271,4 @@ export function ShareModal({ file, isOpen, onClose, onCreateShare }: ShareModalP
       </div>
     </div>
   );
-            }
+                      }
