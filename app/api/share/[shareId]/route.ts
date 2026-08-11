@@ -12,43 +12,47 @@ export async function GET(
     const { shareId } = params;
     console.log("🔍 Accessing share:", shareId);
 
-    // Get share data from Supabase
     const shareData = await getShareData(shareId);
     console.log("📦 Share data:", shareData);
 
-    if (!shareData || !shareData.file) {
+    if (!shareData || !shareData.files || shareData.files.length === 0) {
       return NextResponse.json(
         { error: "Link tidak valid atau telah kadaluarsa" },
         { status: 404 }
       );
     }
 
-    const { file } = shareData;
+    // Generate Presigned URL untuk setiap file
+    const filesWithUrls = await Promise.all(
+      shareData.files.map(async (file) => {
+        const command = new GetObjectCommand({
+          Bucket: BUCKET_NAME,
+          Key: file.key,
+        });
 
-    // Generate Presigned URL untuk download
-    const command = new GetObjectCommand({
-      Bucket: BUCKET_NAME,
-      Key: file.key,
-    });
+        const downloadUrl = await getSignedUrl(s3Client, command, {
+          expiresIn: 3600,
+        });
 
-    const downloadUrl = await getSignedUrl(s3Client, command, {
-      expiresIn: 3600,
-    });
+        return {
+          ...file,
+          downloadUrl,
+        };
+      })
+    );
 
-    // Increment download count (async, jangan tunggu)
+    // Increment download count (async)
     incrementDownloads(shareId).catch(console.error);
 
     return NextResponse.json({
-      downloadUrl,
-      fileKey: file.key,
-      fileName: file.name,
-      fileSize: file.size,
-      mimeType: file.mime_type,
+      files: filesWithUrls,
+      totalFiles: filesWithUrls.length,
+      shareId,
     });
   } catch (error) {
     console.error("❌ Share error:", error);
     return NextResponse.json(
-      { error: "Failed to get file" },
+      { error: "Failed to get files" },
       { status: 500 }
     );
   }
