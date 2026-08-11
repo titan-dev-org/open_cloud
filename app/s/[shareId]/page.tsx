@@ -56,4 +56,4 @@ export default async function SharePage({ params }: SharePageProps) {
     console.error("Share page error:", error);
     notFound();
   }
-          }
+}
