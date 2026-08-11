@@ -4,7 +4,6 @@ import {
   File, 
   Clock, 
   Shield, 
-  Eye,
   FileText,
   Image,
   Film,
@@ -13,8 +12,8 @@ import {
   FileCode,
   CheckCircle,
   Share2,
+  FolderOpen,
 } from "lucide-react";
-import { getShareData } from "@/lib/db";
 
 interface SharePageProps {
   params: {
@@ -22,22 +21,21 @@ interface SharePageProps {
   };
 }
 
+interface FileWithUrl {
+  id: string;
+  name: string;
+  key: string;
+  size: number;
+  mime_type: string;
+  uploaded_at: string;
+  public_url: string;
+  downloadUrl: string;
+}
+
 export default async function SharePage({ params }: SharePageProps) {
   const { shareId } = await params;
 
   try {
-    const shareData = await getShareData(shareId);
-
-    if (!shareData || !shareData.file) {
-      notFound();
-    }
-
-    const { file } = shareData;
-    const fileName = file.name;
-    const fileSize = file.size;
-    const fileType = file.mime_type;
-
-    // Generate URL download
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
     const response = await fetch(`${baseUrl}/api/share/${shareId}`, {
       cache: "no-store",
@@ -47,9 +45,14 @@ export default async function SharePage({ params }: SharePageProps) {
       notFound();
     }
 
-    const { downloadUrl } = await response.json();
+    const data = await response.json();
+    const files: FileWithUrl[] = data.files || [];
+    const totalFiles = data.totalFiles || 0;
 
-    // Format ukuran file
+    if (files.length === 0) {
+      notFound();
+    }
+
     const formatSize = (bytes: number) => {
       if (bytes === 0) return "0 B";
       const k = 1024;
@@ -58,107 +61,104 @@ export default async function SharePage({ params }: SharePageProps) {
       return `${(bytes / Math.pow(k, i)).toFixed(1)} ${sizes[i]}`;
     };
 
-    // Dapatkan ikon berdasarkan tipe file
-    const getFileIcon = () => {
-      if (fileType.startsWith("image/")) return <Image className="w-12 h-12 sm:w-16 sm:h-16 text-blue-500" />;
-      if (fileType.startsWith("video/")) return <Film className="w-12 h-12 sm:w-16 sm:h-16 text-purple-500" />;
-      if (fileType.startsWith("audio/")) return <Music className="w-12 h-12 sm:w-16 sm:h-16 text-green-500" />;
-      if (fileType.includes("zip") || fileType.includes("rar")) return <Archive className="w-12 h-12 sm:w-16 sm:h-16 text-orange-500" />;
-      if (fileType.includes("javascript") || fileType.includes("typescript") || fileType.includes("json")) 
-        return <FileCode className="w-12 h-12 sm:w-16 sm:h-16 text-yellow-500" />;
-      if (fileType === "application/pdf") return <FileText className="w-12 h-12 sm:w-16 sm:h-16 text-red-500" />;
-      return <File className="w-12 h-12 sm:w-16 sm:h-16 text-gray-500" />;
+    const getFileIcon = (mimeType: string) => {
+      if (mimeType.startsWith("image/")) return <Image className="w-5 h-5 text-blue-500 flex-shrink-0" />;
+      if (mimeType.startsWith("video/")) return <Film className="w-5 h-5 text-purple-500 flex-shrink-0" />;
+      if (mimeType.startsWith("audio/")) return <Music className="w-5 h-5 text-green-500 flex-shrink-0" />;
+      if (mimeType.includes("zip") || mimeType.includes("rar")) return <Archive className="w-5 h-5 text-orange-500 flex-shrink-0" />;
+      if (mimeType.includes("javascript") || mimeType.includes("typescript") || mimeType.includes("json")) 
+        return <FileCode className="w-5 h-5 text-yellow-500 flex-shrink-0" />;
+      if (mimeType === "application/pdf") return <FileText className="w-5 h-5 text-red-500 flex-shrink-0" />;
+      return <File className="w-5 h-5 text-gray-500 flex-shrink-0" />;
     };
 
+    const totalSize = files.reduce((acc, f) => acc + f.size, 0);
+
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-purple-50 p-4">
-        <div className="w-full max-w-md sm:max-w-lg md:max-w-xl">
-          {/* Card Utama */}
-          <div className="bg-white/90 backdrop-blur-sm rounded-2xl sm:rounded-3xl shadow-2xl p-6 sm:p-8 md:p-10 border border-white/20">
-            {/* Header */}
-            <div className="text-center mb-6 sm:mb-8">
-              <div className="inline-flex items-center gap-2 bg-blue-50 text-blue-700 px-3 py-1 rounded-full text-xs sm:text-sm font-medium mb-3">
-                <Shield size={14} />
-                <span>Secure Share</span>
-              </div>
-              <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900">
-                File Siap Diunduh
-              </h1>
-              <p className="text-sm sm:text-base text-gray-500 mt-1">
-                Link ini aman dan terenkripsi
-              </p>
-            </div>
-
-            {/* File Icon & Info */}
-            <div className="flex flex-col items-center bg-gray-50/80 rounded-xl sm:rounded-2xl p-6 sm:p-8 border border-gray-100/50 mb-6">
-              <div className="relative">
-                <div className="w-20 h-20 sm:w-24 sm:h-24 md:w-28 md:h-28 bg-white rounded-2xl shadow-md flex items-center justify-center">
-                  {getFileIcon()}
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 p-4 sm:p-6 md:p-8">
+        <div className="max-w-4xl mx-auto">
+          {/* Header */}
+          <div className="bg-white/90 backdrop-blur-sm rounded-2xl sm:rounded-3xl shadow-xl p-6 sm:p-8 border border-white/20 mb-6">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="text-center sm:text-left">
+                <div className="inline-flex items-center gap-2 bg-blue-50 text-blue-700 px-3 py-1 rounded-full text-xs sm:text-sm font-medium mb-2">
+                  <Shield size={14} />
+                  <span>Secure Share</span>
                 </div>
-                <div className="absolute -top-1 -right-1 bg-green-500 rounded-full p-1 border-2 border-white">
-                  <CheckCircle size={12} className="text-white sm:w-4 sm:h-4" />
-                </div>
+                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
+                  {totalFiles} File Dibagikan
+                </h1>
+                <p className="text-sm text-gray-500 mt-1">
+                  Total {formatSize(totalSize)} • {totalFiles} file
+                </p>
               </div>
-
-              <h2 className="text-base sm:text-lg md:text-xl font-semibold text-gray-900 mt-4 text-center break-all max-w-full">
-                {fileName}
-              </h2>
-              
-              <div className="flex flex-wrap items-center justify-center gap-3 mt-3 text-xs sm:text-sm text-gray-500">
-                <span className="flex items-center gap-1.5 bg-white px-3 py-1 rounded-full shadow-sm">
-                  <File size={14} />
-                  {formatSize(fileSize)}
-                </span>
-                <span className="flex items-center gap-1.5 bg-white px-3 py-1 rounded-full shadow-sm">
-                  <FileText size={14} />
-                  {fileType.split("/")[1] || fileType}
-                </span>
-                <span className="flex items-center gap-1.5 bg-white px-3 py-1 rounded-full shadow-sm">
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-1.5 text-xs text-gray-400">
                   <Clock size={14} />
-                  {new Date(file.uploaded_at).toLocaleDateString("id-ID", {
-                    day: "numeric",
-                    month: "short",
-                    year: "numeric",
-                  })}
-                </span>
+                  <span>Berlaku 1 jam</span>
+                </div>
               </div>
             </div>
+          </div>
 
-            {/* Download Button */}
-            <a
-              href={downloadUrl}
-              download={fileName}
-              className="w-full flex items-center justify-center gap-3 py-3.5 sm:py-4 bg-blue-600 text-white rounded-xl sm:rounded-2xl hover:bg-blue-700 transition-all hover:shadow-lg font-semibold text-sm sm:text-base"
-            >
-              <Download size={18} className="sm:w-5 sm:h-5" />
-              Download File
-            </a>
-
-            {/* Footer Info */}
-            <div className="mt-5 sm:mt-6 grid grid-cols-2 gap-3">
-              <div className="text-center bg-blue-50/50 rounded-xl p-3">
-                <p className="text-[10px] sm:text-xs text-blue-600 font-medium">🔒 Aman</p>
-                <p className="text-[10px] sm:text-xs text-gray-400">Terenkripsi</p>
-              </div>
-              <div className="text-center bg-amber-50/50 rounded-xl p-3">
-                <p className="text-[10px] sm:text-xs text-amber-600 font-medium">⏳ Kadaluarsa</p>
-                <p className="text-[10px] sm:text-xs text-gray-400">1 jam</p>
-              </div>
+          {/* File List */}
+          <div className="bg-white rounded-2xl shadow-xl border border-gray-100/50 overflow-hidden">
+            <div className="divide-y divide-gray-100">
+              {files.map((file) => (
+                <div 
+                  key={file.id} 
+                  className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-4 sm:p-5 hover:bg-gray-50/80 transition-colors"
+                >
+                  <div className="flex items-center gap-3 min-w-0 flex-1 w-full sm:w-auto">
+                    {getFileIcon(file.mime_type)}
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm sm:text-base font-medium text-gray-900 truncate">
+                        {file.name}
+                      </p>
+                      <div className="flex flex-wrap items-center gap-2 text-xs text-gray-400">
+                        <span>{formatSize(file.size)}</span>
+                        <span>•</span>
+                        <span>{file.mime_type.split("/")[1] || file.mime_type}</span>
+                        <span>•</span>
+                        <span className="flex items-center gap-0.5">
+                          <Clock size={10} />
+                          {new Date(file.uploaded_at).toLocaleDateString("id-ID", {
+                            day: "numeric",
+                            month: "short",
+                          })}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  <a
+                    href={file.downloadUrl}
+                    download={file.name}
+                    className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium flex-shrink-0"
+                  >
+                    <Download size={16} />
+                    Download
+                  </a>
+                </div>
+              ))}
             </div>
 
-            {/* Share Info */}
-            <div className="mt-4 text-center">
-              <p className="text-[10px] sm:text-xs text-gray-400 flex items-center justify-center gap-1">
-                <Share2 size={12} />
-                Link ini hanya bisa diunduh 1 kali per akses
-              </p>
+            {/* Footer */}
+            <div className="bg-gray-50/80 px-4 sm:px-5 py-3 border-t border-gray-100 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-gray-400">
+              <span className="flex items-center gap-1">
+                <FolderOpen size={14} />
+                {totalFiles} file • {formatSize(totalSize)}
+              </span>
+              <span className="flex items-center gap-1">
+                <Share2 size={14} />
+                Dibagikan melalui Cloud Storage Pro
+              </span>
             </div>
           </div>
 
           {/* Footer */}
-          <div className="text-center mt-4 sm:mt-6">
-            <p className="text-[10px] sm:text-xs text-gray-400">
-              Cloud Storage Pro • Secure File Sharing
+          <div className="text-center mt-6">
+            <p className="text-xs text-gray-400">
+              Cloud Storage Pro • Secure File Sharing • Link ini hanya bisa diunduh 1 kali per akses
             </p>
           </div>
         </div>
@@ -168,4 +168,4 @@ export default async function SharePage({ params }: SharePageProps) {
     console.error("Share page error:", error);
     notFound();
   }
-          }
+                  }
