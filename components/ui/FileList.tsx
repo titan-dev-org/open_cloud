@@ -9,9 +9,8 @@ import {
   Copy,
   Check,
   FolderOpen,
-  MoreVertical,
 } from "lucide-react";
-import { FileRecord } from "@/types";
+import { FileRecord } from "@/lib/supabase"; // ← IMPORT DARI SINI
 import { FileIcon } from "./FileIcon";
 import toast from "react-hot-toast";
 
@@ -98,12 +97,12 @@ export function FileList({ files, onDelete, onShare }: FileListProps) {
               <tr key={file.id} className="hover:bg-gray-50 transition-colors group">
                 <td className="px-6 py-4">
                   <div className="flex items-center gap-3">
-                    <FileIcon mimeType={file.mimeType} className="w-8 h-8 text-gray-500 flex-shrink-0" />
+                    <FileIcon mimeType={file.mime_type} className="w-8 h-8 text-gray-500 flex-shrink-0" />
                     <div className="min-w-0">
                       <p className="font-medium text-gray-900 truncate max-w-[200px]">
                         {file.name}
                       </p>
-                      {file.shareId && (
+                      {file.share_id && (
                         <span className="inline-flex items-center gap-1 text-xs text-green-600 bg-green-50 px-2 py-0.5 rounded-full">
                           <LinkIcon size={10} />
                           Dibagikan
@@ -117,20 +116,20 @@ export function FileList({ files, onDelete, onShare }: FileListProps) {
                 </td>
                 <td className="px-6 py-4 text-sm text-gray-500 whitespace-nowrap">
                   <span className="px-2 py-1 bg-gray-100 rounded text-xs">
-                    {file.mimeType.split("/")[1] || file.mimeType}
+                    {file.mime_type.split("/")[1] || file.mime_type}
                   </span>
                 </td>
                 <td className="px-6 py-4 text-sm text-gray-500 whitespace-nowrap">
                   <div className="flex items-center gap-1">
                     <Clock size={14} />
-                    {formatDate(file.uploadedAt)}
+                    {formatDate(file.uploaded_at)}
                   </div>
                 </td>
                 <td className="px-6 py-4 text-right">
                   <div className="flex items-center justify-end gap-1">
-                    {file.shareId && (
+                    {file.share_id && (
                       <button
-                        onClick={() => copyToClipboard(`${process.env.NEXT_PUBLIC_APP_URL}/s/${file.shareId}`, file.id)}
+                        onClick={() => copyToClipboard(`${process.env.NEXT_PUBLIC_APP_URL}/s/${file.share_id}`, file.id)}
                         className="p-2 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
                         title="Salin link share"
                       >
@@ -149,7 +148,7 @@ export function FileList({ files, onDelete, onShare }: FileListProps) {
                       <LinkIcon size={18} />
                     </button>
                     <a
-                      href={file.publicUrl}
+                      href={file.public_url}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="p-2 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
@@ -172,10 +171,9 @@ export function FileList({ files, onDelete, onShare }: FileListProps) {
         </table>
       </div>
       
-      {/* Footer dengan total file */}
       <div className="px-6 py-3 bg-gray-50 border-t border-gray-200 text-sm text-gray-500">
         Total {files.length} file
       </div>
     </div>
   );
-      }
+  }
