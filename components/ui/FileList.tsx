@@ -9,8 +9,9 @@ import {
   Copy,
   Check,
   FolderOpen,
+  File as FileIcon as FileIconLucide,
 } from "lucide-react";
-import { FileRecord } from "@/lib/supabase"; // ← IMPORT DARI SINI
+import { FileRecord } from "@/lib/supabase";
 import { FileIcon } from "./FileIcon";
 import toast from "react-hot-toast";
 
@@ -171,9 +172,14 @@ export function FileList({ files, onDelete, onShare }: FileListProps) {
         </table>
       </div>
       
-      <div className="px-6 py-3 bg-gray-50 border-t border-gray-200 text-sm text-gray-500">
-        Total {files.length} file
+      <div className="px-6 py-3 bg-gray-50 border-t border-gray-200 text-sm text-gray-500 flex items-center justify-between">
+        <span>Total {files.length} file</span>
+        <span className="text-xs text-gray-400">
+          {files.reduce((acc, f) => acc + f.size, 0) > 0 
+            ? `${(files.reduce((acc, f) => acc + f.size, 0) / 1024 / 1024).toFixed(1)} MB total`
+            : "0 MB total"}
+        </span>
       </div>
     </div>
   );
-  }
+                             }
