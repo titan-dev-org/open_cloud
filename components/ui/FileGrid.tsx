@@ -1,5 +1,6 @@
 "use client";
 
+import { FolderOpen, Link as LinkIcon, Download, Clock } from "lucide-react";
 import { FileRecord } from "@/types";
 import { FileIcon } from "./FileIcon";
 
@@ -17,39 +18,91 @@ export function FileGrid({ files, onFileClick }: FileGridProps) {
     return `${(bytes / Math.pow(k, i)).toFixed(1)} ${sizes[i]}`;
   };
 
+  const formatDate = (date: string) => {
+    const d = new Date(date);
+    const now = new Date();
+    const diff = Math.floor((now.getTime() - d.getTime()) / (1000 * 60));
+    
+    if (diff < 1) return "Baru saja";
+    if (diff < 60) return `${diff} menit lalu`;
+    if (diff < 1440) return `${Math.floor(diff / 60)} jam lalu`;
+    return d.toLocaleDateString("id-ID", {
+      day: "numeric",
+      month: "short",
+    });
+  };
+
   if (files.length === 0) {
     return (
-      <div className="text-center py-12 col-span-full">
+      <div className="text-center py-16 bg-white rounded-xl border border-gray-200 col-span-full">
         <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
           <FolderOpen className="w-10 h-10 text-gray-400" />
         </div>
-        <p className="text-gray-500 text-lg">Belum ada file</p>
+        <p className="text-gray-500 text-lg font-medium">Belum ada file</p>
+        <p className="text-gray-400 text-sm mt-1">Upload file pertama Anda</p>
       </div>
     );
   }
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
       {files.map((file) => (
         <div
           key={file.id}
           onClick={() => onFileClick(file)}
-          className="bg-white rounded-xl border border-gray-200 p-4 text-center hover:shadow-lg hover:border-blue-300 transition-all cursor-pointer group"
+          className="bg-white rounded-xl border border-gray-200 p-4 text-center hover:shadow-lg hover:border-blue-300 hover:-translate-y-0.5 transition-all cursor-pointer group"
         >
           <div className="relative">
-            <FileIcon mimeType={file.mimeType} className="w-12 h-12 mx-auto text-gray-500 group-hover:text-blue-500 transition-colors" />
+            <FileIcon mimeType={file.mimeType} className="w-14 h-14 mx-auto text-gray-500 group-hover:text-blue-500 transition-colors" />
+            
+            {/* Badge status */}
             {file.shareId && (
               <div className="absolute -top-1 -right-1 bg-green-500 rounded-full w-3 h-3 border-2 border-white" title="Telah dibagikan" />
             )}
           </div>
+          
           <p className="text-sm font-medium text-gray-800 truncate mt-3">
             {file.name}
           </p>
-          <p className="text-xs text-gray-400">
-            {formatSize(file.size)}
-          </p>
+          
+          <div className="flex items-center justify-center gap-2 mt-1">
+            <span className="text-xs text-gray-400">
+              {formatSize(file.size)}
+            </span>
+            <span className="text-xs text-gray-300">•</span>
+            <span className="text-xs text-gray-400 flex items-center gap-0.5">
+              <Clock size={10} />
+              {formatDate(file.uploadedAt)}
+            </span>
+          </div>
+          
+          {/* Tombol aksi muncul saat hover */}
+          <div className="flex items-center justify-center gap-1 mt-3 opacity-0 group-hover:opacity-100 transition-opacity">
+            {file.shareId && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  navigator.clipboard.writeText(`${process.env.NEXT_PUBLIC_APP_URL}/s/${file.shareId}`);
+                }}
+                className="p-1.5 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                title="Salin link"
+              >
+                <LinkIcon size={14} />
+              </button>
+            )}
+            <a
+              href={file.publicUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="p-1.5 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
+              title="Download"
+            >
+              <Download size={14} />
+            </a>
+          </div>
         </div>
       ))}
     </div>
   );
-}
+      }
