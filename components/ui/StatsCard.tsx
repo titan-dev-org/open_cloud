@@ -18,22 +18,27 @@ const colorClasses = {
   blue: {
     bg: "bg-blue-50",
     text: "text-blue-600",
+    ring: "ring-blue-600/10",
   },
   green: {
     bg: "bg-green-50",
     text: "text-green-600",
+    ring: "ring-green-600/10",
   },
   purple: {
     bg: "bg-purple-50",
     text: "text-purple-600",
+    ring: "ring-purple-600/10",
   },
   orange: {
     bg: "bg-orange-50",
     text: "text-orange-600",
+    ring: "ring-orange-600/10",
   },
   red: {
     bg: "bg-red-50",
     text: "text-red-600",
+    ring: "ring-red-600/10",
   },
 };
 
