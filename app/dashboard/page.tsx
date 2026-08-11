@@ -21,7 +21,7 @@ import { ShareModal } from "@/components/ui/ShareModal";
 import { Header } from "@/components/layout/Header";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { FileRecord } from "@/lib/supabase";
-import { getFiles, saveFile, deleteFile, updateFile } from "@/lib/db";
+import { getFiles, saveFile, deleteFile } from "@/lib/db";
 
 interface Stats {
   totalFiles: number;
@@ -43,7 +43,6 @@ export default function DashboardPage() {
     totalShares: 0,
   });
 
-  // Load files dari Supabase
   const loadFiles = async () => {
     setLoading(true);
     try {
@@ -78,7 +77,6 @@ export default function DashboardPage() {
       const uploaded: FileRecord[] = [];
       
       for (const file of uploadedFiles) {
-        // 1. Minta Presigned URL
         const response = await fetch("/api/upload", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -95,7 +93,6 @@ export default function DashboardPage() {
 
         const data = await response.json();
 
-        // 2. Upload ke Filebase
         const uploadResponse = await fetch(data.presignedUrl, {
           method: "PUT",
           body: file,
@@ -106,7 +103,6 @@ export default function DashboardPage() {
           throw new Error("Gagal upload file ke storage");
         }
 
-        // 3. Simpan ke Supabase
         const fileRecord: FileRecord = {
           id: data.fileKey,
           name: file.name,
@@ -121,9 +117,7 @@ export default function DashboardPage() {
         await saveFile(fileRecord);
       }
 
-      // Refresh files
       await loadFiles();
-
       toast.success(`${uploaded.length} file berhasil diupload!`);
     } catch (error) {
       console.error("Upload error:", error);
@@ -134,6 +128,8 @@ export default function DashboardPage() {
   };
 
   const handleDelete = async (id: string) => {
+    if (!confirm("Apakah Anda yakin ingin menghapus file ini?")) return;
+    
     try {
       await deleteFile(id);
       await loadFiles();
@@ -157,8 +153,10 @@ export default function DashboardPage() {
 
     const { shareId } = await response.json();
     
-    // Refresh files
-    await loadFiles();
+    // Refresh files secara manual agar share_id langsung muncul
+    const refreshedFiles = await getFiles();
+    setFiles(refreshedFiles);
+    updateStats(refreshedFiles);
     
     return shareId;
   };
@@ -179,56 +177,53 @@ export default function DashboardPage() {
     <div className="flex min-h-screen bg-gray-50">
       <Sidebar />
       
-      <div className="flex-1 lg:ml-64">
+      <div className="flex-1 lg:ml-64 min-w-0">
         <Header title="Dashboard" />
         
-        <main className="p-6">
-          {/* Stats */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <main className="p-4 sm:p-6 max-w-full">
+          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-4 sm:mb-6">
             <StatsCard
               title="Total File"
               value={stats.totalFiles}
-              icon={<FolderOpen size={20} />}
+              icon={<FolderOpen size={18} className="sm:w-5 sm:h-5" />}
               color="blue"
             />
             <StatsCard
               title="Total Storage"
               value={`${(stats.totalSize / 1024 / 1024).toFixed(1)} MB`}
-              icon={<HardDrive size={20} />}
+              icon={<HardDrive size={18} className="sm:w-5 sm:h-5" />}
               subtitle={`${stats.totalFiles} file`}
               color="green"
             />
             <StatsCard
               title="File Dibagikan"
               value={stats.totalShares}
-              icon={<Share2 size={20} />}
+              icon={<Share2 size={18} className="sm:w-5 sm:h-5" />}
               color="purple"
             />
             <StatsCard
               title="Upload"
               value={uploading ? "⏳" : "+ Tambah"}
-              icon={<Upload size={20} />}
+              icon={<Upload size={18} className="sm:w-5 sm:h-5" />}
               subtitle={uploading ? "Sedang upload..." : "Klik untuk upload"}
               color="orange"
             />
           </div>
 
-          {/* Upload Area */}
-          <div className="mb-6">
+          <div className="mb-4 sm:mb-6">
             <FileUploader onUpload={handleUpload} />
           </div>
 
-          {/* Toolbar */}
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-4">
-            <div className="flex-1 w-full sm:max-w-sm">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4 mb-3 sm:mb-4">
+            <div className="w-full sm:max-w-xs">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
                 <input
                   type="text"
                   placeholder="Cari file..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                  className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
                 />
               </div>
             </div>
@@ -238,57 +233,57 @@ export default function DashboardPage() {
                 className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
                 title="Refresh"
               >
-                <RefreshCw size={20} />
+                <RefreshCw size={18} />
               </button>
               <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
                 <button
                   onClick={() => setView("list")}
-                  className={`p-2 rounded-lg transition-colors ${
+                  className={`p-1.5 rounded-lg transition-colors ${
                     view === "list" ? "bg-white shadow-sm text-blue-600" : "text-gray-400 hover:text-gray-600"
                   }`}
                 >
-                  <List size={18} />
+                  <List size={16} />
                 </button>
                 <button
                   onClick={() => setView("grid")}
-                  className={`p-2 rounded-lg transition-colors ${
+                  className={`p-1.5 rounded-lg transition-colors ${
                     view === "grid" ? "bg-white shadow-sm text-blue-600" : "text-gray-400 hover:text-gray-600"
                   }`}
                 >
-                  <Grid3X3 size={18} />
+                  <Grid3X3 size={16} />
                 </button>
               </div>
             </div>
           </div>
 
-          {/* File List / Grid */}
-          {view === "list" ? (
-            <FileList
-              files={filteredFiles}
-              onDelete={handleDelete}
-              onShare={(file) => {
-                setSelectedFile(file);
-                setIsShareModalOpen(true);
-              }}
-            />
-          ) : (
-            <FileGrid
-              files={filteredFiles}
-              onFileClick={(file) => {
-                setSelectedFile(file);
-                setIsShareModalOpen(true);
-              }}
-              onDelete={handleDelete}
-              onShare={(file) => {
-                setSelectedFile(file);
-                setIsShareModalOpen(true);
-              }}
-            />
-          )}
+          <div className="w-full overflow-x-hidden">
+            {view === "list" ? (
+              <FileList
+                files={filteredFiles}
+                onDelete={handleDelete}
+                onShare={(file) => {
+                  setSelectedFile(file);
+                  setIsShareModalOpen(true);
+                }}
+              />
+            ) : (
+              <FileGrid
+                files={filteredFiles}
+                onFileClick={(file) => {
+                  setSelectedFile(file);
+                  setIsShareModalOpen(true);
+                }}
+                onDelete={handleDelete}
+                onShare={(file) => {
+                  setSelectedFile(file);
+                  setIsShareModalOpen(true);
+                }}
+              />
+            )}
+          </div>
         </main>
       </div>
 
-      {/* Share Modal */}
       <ShareModal
         file={selectedFile}
         isOpen={isShareModalOpen}
@@ -300,4 +295,4 @@ export default function DashboardPage() {
       />
     </div>
   );
-    }
+                                                    }
