@@ -1,118 +1,184 @@
-export interface FileRecord {
-  id: string;
-  name: string;
-  key: string;
-  size: number;
-  mimeType: string;
-  uploadedAt: string;
-  publicUrl: string;
-  shareId?: string;
-  sharePassword?: string;
-  shareExpiry?: string;
-}
+import { supabase, FileRecord, ShareRecord } from './supabase';
 
-const STORAGE_KEY = "cloud_storage_files";
+// ============ FILE OPERATIONS ============
 
-export function getFiles(): FileRecord[] {
-  if (typeof window === "undefined") return [];
-  try {
-    const data = localStorage.getItem(STORAGE_KEY);
-    return data ? JSON.parse(data) : [];
-  } catch {
+export async function getFiles(): Promise<FileRecord[]> {
+  const { data, error } = await supabase
+    .from('files')
+    .select('*')
+    .order('uploaded_at', { ascending: false });
+
+  if (error) {
+    console.error('Error fetching files:', error);
     return [];
   }
+
+  return data || [];
 }
 
-export function saveFile(file: FileRecord): FileRecord[] {
-  const files = getFiles();
-  files.unshift(file);
-  if (typeof window !== "undefined") {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(files));
+export async function saveFile(file: FileRecord): Promise<FileRecord> {
+  const { data, error } = await supabase
+    .from('files')
+    .insert([file])
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error saving file:', error);
+    throw error;
   }
-  return files;
+
+  return data;
 }
 
-export function deleteFile(id: string): FileRecord[] {
-  const files = getFiles().filter(f => f.id !== id);
-  if (typeof window !== "undefined") {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(files));
+export async function deleteFile(id: string): Promise<void> {
+  const { error } = await supabase
+    .from('files')
+    .delete()
+    .eq('id', id);
+
+  if (error) {
+    console.error('Error deleting file:', error);
+    throw error;
   }
-  return files;
 }
 
-export function updateFile(id: string, data: Partial<FileRecord>): FileRecord[] {
-  const files = getFiles();
-  const index = files.findIndex(f => f.id === id);
-  if (index !== -1) {
-    files[index] = { ...files[index], ...data };
-    if (typeof window !== "undefined") {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(files));
-    }
+export async function updateFile(id: string, data: Partial<FileRecord>): Promise<FileRecord> {
+  const { data: updated, error } = await supabase
+    .from('files')
+    .update(data)
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error updating file:', error);
+    throw error;
   }
-  return files;
+
+  return updated;
 }
 
-export function getFile(id: string): FileRecord | undefined {
-  return getFiles().find(f => f.id === id);
+export async function getFile(id: string): Promise<FileRecord | null> {
+  const { data, error } = await supabase
+    .from('files')
+    .select('*')
+    .eq('id', id)
+    .single();
+
+  if (error) {
+    console.error('Error fetching file:', error);
+    return null;
+  }
+
+  return data;
 }
 
-// SHARE LINKS - Simpan di localStorage juga agar persist
-const SHARE_STORAGE_KEY = "cloud_storage_shares";
+// ============ SHARE OPERATIONS ============
 
-interface ShareData {
-  fileId: string;
-  password?: string;
-  expiry?: string;
-  createdAt: string;
-}
-
-export function createShareLink(fileId: string, password?: string, expiry?: string): string {
+export async function createShareLink(
+  fileId: string, 
+  password?: string, 
+  expiry?: string
+): Promise<string> {
+  // Generate share ID
   const shareId = Math.random().toString(36).substring(2, 10);
   
-  const shares = getShares();
-  shares[shareId] = {
-    fileId,
-    password,
-    expiry,
-    createdAt: new Date().toISOString(),
-  };
-  
-  if (typeof window !== "undefined") {
-    localStorage.setItem(SHARE_STORAGE_KEY, JSON.stringify(shares));
+  // Calculate expiry date
+  let expiresAt = null;
+  if (expiry && expiry !== 'never') {
+    const days = parseInt(expiry);
+    const date = new Date();
+    date.setDate(date.getDate() + days);
+    expiresAt = date.toISOString();
   }
-  
+
+  // Insert share record
+  const { error: shareError } = await supabase
+    .from('shares')
+    .insert([{
+      id: shareId,
+      file_id: fileId,
+      password: password || null,
+      expiry: expiry || 'never',
+      expires_at: expiresAt,
+      downloads: 0,
+    }]);
+
+  if (shareError) {
+    console.error('Error creating share:', shareError);
+    throw shareError;
+  }
+
+  // Update file with share_id
+  await updateFile(fileId, { 
+    share_id: shareId,
+    share_password: password,
+    share_expiry: expiry,
+    share_created_at: new Date().toISOString(),
+  });
+
   return shareId;
 }
 
-export function getShareData(shareId: string): { fileId: string; password?: string; expiry?: string } | undefined {
-  const shares = getShares();
-  const data = shares[shareId];
-  if (!data) return undefined;
-  
-  // Cek expiry
-  if (data.expiry && data.expiry !== "never") {
-    const days = parseInt(data.expiry);
-    const createdAt = new Date(data.createdAt);
-    const now = new Date();
-    const diffDays = (now.getTime() - createdAt.getTime()) / (1000 * 60 * 60 * 24);
-    if (diffDays > days) {
-      return undefined; // Expired
+export async function getShareData(shareId: string): Promise<{
+  fileId: string;
+  password?: string;
+  expiry?: string;
+  file?: FileRecord;
+} | null> {
+  // Get share record
+  const { data: share, error: shareError } = await supabase
+    .from('shares')
+    .select('*')
+    .eq('id', shareId)
+    .single();
+
+  if (shareError || !share) {
+    console.error('Share not found:', shareError);
+    return null;
+  }
+
+  // Check expiry
+  if (share.expires_at) {
+    const expiryDate = new Date(share.expires_at);
+    if (expiryDate < new Date()) {
+      return null; // Expired
     }
   }
-  
+
+  // Check max downloads
+  if (share.max_downloads && share.downloads >= share.max_downloads) {
+    return null; // Max downloads reached
+  }
+
+  // Get file data
+  const { data: file, error: fileError } = await supabase
+    .from('files')
+    .select('*')
+    .eq('id', share.file_id)
+    .single();
+
+  if (fileError || !file) {
+    console.error('File not found:', fileError);
+    return null;
+  }
+
   return {
-    fileId: data.fileId,
-    password: data.password,
-    expiry: data.expiry,
+    fileId: share.file_id,
+    password: share.password,
+    expiry: share.expiry,
+    file,
   };
 }
 
-function getShares(): Record<string, ShareData> {
-  if (typeof window === "undefined") return {};
-  try {
-    const data = localStorage.getItem(SHARE_STORAGE_KEY);
-    return data ? JSON.parse(data) : {};
-  } catch {
-    return {};
+export async function incrementDownloads(shareId: string): Promise<void> {
+  const { error } = await supabase
+    .from('shares')
+    .update({ downloads: supabase.rpc('increment', { row_id: shareId }) })
+    .eq('id', shareId);
+
+  if (error) {
+    console.error('Error incrementing downloads:', error);
   }
-      }
+    }
