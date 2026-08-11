@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { X, Copy, Check, Calendar, Lock, Link as LinkIcon, Eye, EyeOff, File, ChevronRight } from "lucide-react";
+import { X, Copy, Check, Calendar, Lock, Link as LinkIcon, Eye, EyeOff, File } from "lucide-react";
 import { FileRecord } from "@/lib/supabase";
 import toast from "react-hot-toast";
 
@@ -278,4 +278,4 @@ export function ShareModal({
       </div>
     </div>
   );
-}
+                         }
