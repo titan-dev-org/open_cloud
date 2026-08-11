@@ -181,4 +181,4 @@ export function FileList({ files, onDelete, onShare }: FileListProps) {
       </div>
     </div>
   );
-        }
+          }
