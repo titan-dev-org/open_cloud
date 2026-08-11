@@ -9,7 +9,6 @@ import {
   Copy,
   Check,
   FolderOpen,
-  File as FileIcon as FileIconLucide,
 } from "lucide-react";
 import { FileRecord } from "@/lib/supabase";
 import { FileIcon } from "./FileIcon";
@@ -182,4 +181,4 @@ export function FileList({ files, onDelete, onShare }: FileListProps) {
       </div>
     </div>
   );
-                             }
+    }
