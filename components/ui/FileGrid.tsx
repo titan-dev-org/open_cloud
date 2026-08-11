@@ -8,7 +8,9 @@ import {
   Clock, 
   Copy, 
   Check,
-  Trash2, // ← PASTIKAN INI ADA
+  Trash2,
+  CheckSquare,
+  Square,
 } from "lucide-react";
 import { FileRecord } from "@/lib/supabase";
 import { FileIcon } from "./FileIcon";
@@ -19,9 +21,20 @@ interface FileGridProps {
   onFileClick: (file: FileRecord) => void;
   onDelete?: (id: string) => void;
   onShare?: (file: FileRecord) => void;
+  isMultiSelect?: boolean;
+  selectedFiles?: Set<string>;
+  onToggleSelect?: (fileId: string) => void;
 }
 
-export function FileGrid({ files, onFileClick, onDelete, onShare }: FileGridProps) {
+export function FileGrid({ 
+  files, 
+  onFileClick, 
+  onDelete, 
+  onShare,
+  isMultiSelect = false,
+  selectedFiles = new Set(),
+  onToggleSelect,
+}: FileGridProps) {
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
   const formatSize = (bytes: number) => {
@@ -74,6 +87,13 @@ export function FileGrid({ files, onFileClick, onDelete, onShare }: FileGridProp
     }
   };
 
+  const handleToggleSelect = (fileId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onToggleSelect) {
+      onToggleSelect(fileId);
+    }
+  };
+
   if (files.length === 0) {
     return (
       <div className="text-center py-16 bg-white rounded-xl border border-gray-200 col-span-full">
@@ -88,80 +108,106 @@ export function FileGrid({ files, onFileClick, onDelete, onShare }: FileGridProp
 
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-      {files.map((file) => (
-        <div
-          key={file.id}
-          onClick={() => onFileClick(file)}
-          className="bg-white rounded-xl border border-gray-200 p-4 text-center hover:shadow-lg hover:border-blue-300 hover:-translate-y-0.5 transition-all cursor-pointer group relative"
-        >
-          <div className="relative">
-            <FileIcon mimeType={file.mime_type} className="w-14 h-14 mx-auto text-gray-500 group-hover:text-blue-500 transition-colors" />
+      {files.map((file) => {
+        const isSelected = selectedFiles.has(file.id);
+        return (
+          <div
+            key={file.id}
+            onClick={() => {
+              if (isMultiSelect) {
+                onToggleSelect?.(file.id);
+              } else {
+                onFileClick(file);
+              }
+            }}
+            className={`bg-white rounded-xl border p-4 text-center hover:shadow-lg hover:-translate-y-0.5 transition-all cursor-pointer group relative ${
+              isSelected ? "border-blue-500 ring-2 ring-blue-500/30 bg-blue-50/30" : "border-gray-200 hover:border-blue-300"
+            }`}
+          >
+            {isMultiSelect && (
+              <div className="absolute top-2 left-2">
+                <button
+                  onClick={(e) => handleToggleSelect(file.id, e)}
+                  className="text-gray-400 hover:text-blue-600"
+                >
+                  {isSelected ? (
+                    <CheckSquare size={16} className="text-blue-600" />
+                  ) : (
+                    <Square size={16} />
+                  )}
+                </button>
+              </div>
+            )}
+
+            <div className="relative pt-4">
+              <FileIcon mimeType={file.mime_type} className="w-14 h-14 mx-auto text-gray-500 group-hover:text-blue-500 transition-colors" />
+              
+              {file.share_id && (
+                <div className="absolute -top-1 -right-1 bg-green-500 rounded-full w-3 h-3 border-2 border-white" title="Telah dibagikan" />
+              )}
+            </div>
             
-            {file.share_id && (
-              <div className="absolute -top-1 -right-1 bg-green-500 rounded-full w-3 h-3 border-2 border-white" title="Telah dibagikan" />
-            )}
-          </div>
-          
-          <p className="text-sm font-medium text-gray-800 truncate mt-3">
-            {file.name}
-          </p>
-          
-          <div className="flex items-center justify-center gap-2 mt-1">
-            <span className="text-xs text-gray-400">
-              {formatSize(file.size)}
-            </span>
-            <span className="text-xs text-gray-300">•</span>
-            <span className="text-xs text-gray-400 flex items-center gap-0.5">
-              <Clock size={10} />
-              {formatDate(file.uploaded_at)}
-            </span>
-          </div>
-          
-          <div className="flex items-center justify-center gap-1 mt-3 opacity-0 group-hover:opacity-100 transition-opacity">
-            {file.share_id && (
-              <button
-                onClick={(e) => copyToClipboard(`${process.env.NEXT_PUBLIC_APP_URL}/s/${file.share_id}`, file.id, e)}
-                className="p-1.5 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
-                title="Salin link"
+            <p className="text-sm font-medium text-gray-800 truncate mt-3">
+              {file.name}
+            </p>
+            
+            <div className="flex items-center justify-center gap-2 mt-1">
+              <span className="text-xs text-gray-400">
+                {formatSize(file.size)}
+              </span>
+              <span className="text-xs text-gray-300">•</span>
+              <span className="text-xs text-gray-400 flex items-center gap-0.5">
+                <Clock size={10} />
+                {formatDate(file.uploaded_at)}
+              </span>
+            </div>
+            
+            <div className="flex items-center justify-center gap-1 mt-3 opacity-0 group-hover:opacity-100 transition-opacity">
+              {file.share_id && (
+                <button
+                  onClick={(e) => copyToClipboard(`${process.env.NEXT_PUBLIC_APP_URL}/s/${file.share_id}`, file.id, e)}
+                  className="p-1.5 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                  title="Salin link"
+                >
+                  {copiedId === file.id ? (
+                    <Check size={14} className="text-green-600" />
+                  ) : (
+                    <Copy size={14} />
+                  )}
+                </button>
+              )}
+              {onShare && !isMultiSelect && (
+                <button
+                  onClick={(e) => handleShare(file, e)}
+                  className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                  title="Buat link share"
+                >
+                  <LinkIcon size={14} />
+                </button>
+              )}
+              <a
+                href={file.public_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                className="p-1.5 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
+                title="Download"
               >
-                {copiedId === file.id ? (
-                  <Check size={14} className="text-green-600" />
-                ) : (
-                  <Copy size={14} />
-                )}
-              </button>
-            )}
-            {onShare && (
-              <button
-                onClick={(e) => handleShare(file, e)}
-                className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                title="Buat link share"
-              >
-                <LinkIcon size={14} />
-              </button>
-            )}
-            <a
-              href={file.public_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={(e) => e.stopPropagation()}
-              className="p-1.5 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
-              title="Download"
-            >
-              <Download size={14} />
-            </a>
-            {onDelete && (
-              <button
-                onClick={(e) => handleDelete(file.id, e)}
-                className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                title="Hapus"
-              >
-                <Trash2 size={14} />
-              </button>
-            )}
+                <Download size={14} />
+              </a>
+              {onDelete && !isMultiSelect && (
+                <button
+                  onClick={(e) => handleDelete(file.id, e)}
+                  className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                  title="Hapus"
+                >
+                  <Trash2 size={14} />
+                </button>
+              )}
+            </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
-}
+                              }
