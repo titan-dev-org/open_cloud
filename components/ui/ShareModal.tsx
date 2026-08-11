@@ -1,18 +1,27 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { X, Copy, Check, Calendar, Lock, Link as LinkIcon, Eye, EyeOff } from "lucide-react";
+import { X, Copy, Check, Calendar, Lock, Link as LinkIcon, Eye, EyeOff, File, ChevronRight } from "lucide-react";
 import { FileRecord } from "@/lib/supabase";
 import toast from "react-hot-toast";
 
 interface ShareModalProps {
   file: FileRecord | null;
+  files?: FileRecord[];
   isOpen: boolean;
   onClose: () => void;
-  onCreateShare: (fileId: string, password?: string, expiry?: string) => Promise<string>;
+  onCreateShare: (fileIds: string[], password?: string, expiry?: string) => Promise<string>;
+  isMultiFile?: boolean;
 }
 
-export function ShareModal({ file, isOpen, onClose, onCreateShare }: ShareModalProps) {
+export function ShareModal({ 
+  file, 
+  files = [], 
+  isOpen, 
+  onClose, 
+  onCreateShare,
+  isMultiFile = false 
+}: ShareModalProps) {
   const [loading, setLoading] = useState(false);
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -20,6 +29,9 @@ export function ShareModal({ file, isOpen, onClose, onCreateShare }: ShareModalP
   const [password, setPassword] = useState("");
   const [expiry, setExpiry] = useState("7d");
   const [isCreating, setIsCreating] = useState(false);
+
+  const fileList = isMultiFile ? files : (file ? [file] : []);
+  const fileIds = fileList.map(f => f.id);
 
   useEffect(() => {
     if (!isOpen) {
@@ -31,7 +43,7 @@ export function ShareModal({ file, isOpen, onClose, onCreateShare }: ShareModalP
     }
   }, [isOpen]);
 
-  if (!isOpen || !file) return null;
+  if (!isOpen || fileList.length === 0) return null;
 
   const formatSize = (bytes: number) => {
     if (bytes === 0) return "0 B";
@@ -53,22 +65,16 @@ export function ShareModal({ file, isOpen, onClose, onCreateShare }: ShareModalP
   };
 
   const handleCreate = async () => {
-    if (isCreating) return;
+    if (isCreating || fileIds.length === 0) return;
     
     setIsCreating(true);
     setLoading(true);
     
     try {
-      const shareId = await onCreateShare(
-        file.id, 
-        password || undefined, 
-        expiry
-      );
-      
+      const shareId = await onCreateShare(fileIds, password || undefined, expiry);
       const url = `${process.env.NEXT_PUBLIC_APP_URL}/s/${shareId}`;
       setShareUrl(url);
-      
-      toast.success("✨ Link share berhasil dibuat!");
+      toast.success(`✨ Link share untuk ${fileIds.length} file berhasil dibuat!`);
     } catch (error) {
       console.error("Create share error:", error);
       toast.error("Gagal membuat link share: " + (error as Error).message);
@@ -85,7 +91,6 @@ export function ShareModal({ file, isOpen, onClose, onCreateShare }: ShareModalP
       await navigator.clipboard.writeText(shareUrl);
       setCopied(true);
       toast.success("📋 Link disalin ke clipboard!");
-      
       setTimeout(() => setCopied(false), 3000);
     } catch {
       toast.error("Gagal menyalin link");
@@ -98,73 +103,75 @@ export function ShareModal({ file, isOpen, onClose, onCreateShare }: ShareModalP
     }
   };
 
+  const totalSize = fileList.reduce((acc, f) => acc + f.size, 0);
+
   return (
     <div 
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
       onClick={handleClose}
     >
       <div 
-        className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 relative max-h-[90vh] overflow-y-auto"
+        className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-5 sm:p-6 relative max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         <button
           onClick={handleClose}
           disabled={loading}
-          className="absolute top-4 right-4 p-2 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
+          className="absolute top-3 right-3 sm:top-4 sm:right-4 p-2 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
         >
-          <X size={20} />
+          <X size={18} className="sm:w-5 sm:h-5" />
         </button>
 
         <div className="flex items-center gap-3 mb-4">
           <div className="p-2 bg-blue-50 rounded-lg text-blue-600">
-            <LinkIcon size={20} />
+            <LinkIcon size={18} className="sm:w-5 sm:h-5" />
           </div>
           <div>
-            <h2 className="text-xl font-bold text-gray-900">Bagikan File</h2>
-            <p className="text-sm text-gray-500">Buat link untuk berbagi file</p>
+            <h2 className="text-lg sm:text-xl font-bold text-gray-900">
+              {isMultiFile ? `Bagikan ${fileList.length} File` : "Bagikan File"}
+            </h2>
+            <p className="text-xs sm:text-sm text-gray-500">
+              {isMultiFile 
+                ? `Total ${fileList.length} file • ${formatSize(totalSize)}`
+                : "Buat link untuk berbagi file"
+              }
+            </p>
           </div>
         </div>
         
-        <div className="bg-gray-50 rounded-lg p-4 mb-4 border border-gray-100">
-          <div className="flex items-start gap-3">
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-gray-900 truncate">
-                {file.name}
-              </p>
-              <div className="flex items-center gap-3 mt-1 text-xs text-gray-500">
-                <span>{formatSize(file.size)}</span>
-                <span>•</span>
-                <span>{file.mime_type}</span>
-                <span>•</span>
-                <span>Upload: {formatDate(file.uploaded_at)}</span>
-              </div>
+        {/* File List Preview */}
+        <div className="bg-gray-50 rounded-lg p-3 sm:p-4 mb-4 border border-gray-100 max-h-40 overflow-y-auto">
+          {fileList.slice(0, 5).map((f) => (
+            <div key={f.id} className="flex items-center gap-2 py-1.5 border-b border-gray-100 last:border-0">
+              <File size={14} className="text-gray-400 flex-shrink-0" />
+              <span className="text-xs sm:text-sm text-gray-700 truncate flex-1">{f.name}</span>
+              <span className="text-[10px] sm:text-xs text-gray-400 flex-shrink-0">{formatSize(f.size)}</span>
             </div>
-            {file.share_id && (
-              <span className="flex-shrink-0 inline-flex items-center gap-1 text-xs text-green-600 bg-green-50 px-2 py-1 rounded-full">
-                <Check size={12} />
-                Dibagikan
-              </span>
-            )}
-          </div>
+          ))}
+          {fileList.length > 5 && (
+            <div className="text-xs text-gray-400 mt-2 text-center">
+              +{fileList.length - 5} file lainnya
+            </div>
+          )}
         </div>
 
         {shareUrl ? (
           <div className="space-y-4">
-            <div className="flex items-center gap-2 p-3 bg-gray-50 rounded-lg border border-gray-200">
+            <div className="flex items-center gap-2 p-2 sm:p-3 bg-gray-50 rounded-lg border border-gray-200">
               <input
                 type="text"
                 value={shareUrl}
                 readOnly
-                className="flex-1 bg-transparent text-sm text-gray-700 outline-none truncate"
+                className="flex-1 bg-transparent text-xs sm:text-sm text-gray-700 outline-none truncate"
               />
               <button
                 onClick={copyToClipboard}
-                className="p-2 hover:bg-gray-200 rounded-lg transition-colors flex-shrink-0"
+                className="p-1.5 sm:p-2 hover:bg-gray-200 rounded-lg transition-colors flex-shrink-0"
               >
                 {copied ? (
-                  <Check size={18} className="text-green-500" />
+                  <Check size={16} className="text-green-500 sm:w-5 sm:h-5" />
                 ) : (
-                  <Copy size={18} className="text-gray-500" />
+                  <Copy size={16} className="text-gray-500 sm:w-5 sm:h-5" />
                 )}
               </button>
             </div>
@@ -172,7 +179,7 @@ export function ShareModal({ file, isOpen, onClose, onCreateShare }: ShareModalP
             <div className="grid grid-cols-2 gap-2">
               <button
                 onClick={() => window.open(shareUrl, "_blank")}
-                className="py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                className="py-2 text-sm sm:text-base bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
               >
                 Buka Link
               </button>
@@ -182,15 +189,15 @@ export function ShareModal({ file, isOpen, onClose, onCreateShare }: ShareModalP
                   setCopied(false);
                   toast.success("🔄 Siap buat link baru");
                 }}
-                className="py-2.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors font-medium"
+                className="py-2 text-sm sm:text-base bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors font-medium"
               >
                 Buat Ulang
               </button>
             </div>
 
-            {file.share_id && (
+            {fileList.some(f => f.share_id) && (
               <div className="text-center text-xs text-gray-400 bg-gray-50 rounded-lg p-2">
-                🔗 File ini sudah memiliki link share sebelumnya
+                🔗 Beberapa file sudah memiliki link share sebelumnya
               </div>
             )}
           </div>
@@ -208,14 +215,14 @@ export function ShareModal({ file, isOpen, onClose, onCreateShare }: ShareModalP
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   disabled={loading}
-                  className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none disabled:opacity-50 pr-10"
+                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none disabled:opacity-50 pr-10"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
                 >
-                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
               </div>
               <p className="text-xs text-gray-400 mt-1.5">
@@ -232,7 +239,7 @@ export function ShareModal({ file, isOpen, onClose, onCreateShare }: ShareModalP
                 value={expiry}
                 onChange={(e) => setExpiry(e.target.value)}
                 disabled={loading}
-                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none disabled:opacity-50 appearance-none bg-white"
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none disabled:opacity-50 appearance-none bg-white"
               >
                 <option value="1h">1 Jam</option>
                 <option value="6h">6 Jam</option>
@@ -247,8 +254,8 @@ export function ShareModal({ file, isOpen, onClose, onCreateShare }: ShareModalP
 
             <button
               onClick={handleCreate}
-              disabled={loading || isCreating}
-              className="w-full py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium flex items-center justify-center gap-2"
+              disabled={loading || isCreating || fileIds.length === 0}
+              className="w-full py-2.5 sm:py-3 text-sm sm:text-base bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium flex items-center justify-center gap-2"
             >
               {loading ? (
                 <>
@@ -257,8 +264,8 @@ export function ShareModal({ file, isOpen, onClose, onCreateShare }: ShareModalP
                 </>
               ) : (
                 <>
-                  <LinkIcon size={18} />
-                  Buat Link Share
+                  <LinkIcon size={16} />
+                  Buat Link Share {isMultiFile ? `(${fileIds.length} file)` : ""}
                 </>
               )}
             </button>
@@ -271,4 +278,4 @@ export function ShareModal({ file, isOpen, onClose, onCreateShare }: ShareModalP
       </div>
     </div>
   );
-                      }
+}
