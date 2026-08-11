@@ -1,15 +1,29 @@
 "use client";
 
-import { FolderOpen, Link as LinkIcon, Download, Clock } from "lucide-react";
+import { useState } from "react";
+import { 
+  FolderOpen, 
+  Link as LinkIcon, 
+  Download, 
+  Clock, 
+  Copy, 
+  Check,
+  MoreVertical,
+} from "lucide-react";
 import { FileRecord } from "@/lib/supabase";
 import { FileIcon } from "./FileIcon";
+import toast from "react-hot-toast";
 
 interface FileGridProps {
   files: FileRecord[];
   onFileClick: (file: FileRecord) => void;
+  onDelete?: (id: string) => void;
+  onShare?: (file: FileRecord) => void;
 }
 
-export function FileGrid({ files, onFileClick }: FileGridProps) {
+export function FileGrid({ files, onFileClick, onDelete, onShare }: FileGridProps) {
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
   const formatSize = (bytes: number) => {
     if (bytes === 0) return "0 B";
     const k = 1024;
@@ -32,6 +46,34 @@ export function FileGrid({ files, onFileClick }: FileGridProps) {
     });
   };
 
+  const copyToClipboard = async (text: string, id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedId(id);
+      toast.success("Link disalin!");
+      setTimeout(() => setCopiedId(null), 2000);
+    } catch {
+      toast.error("Gagal menyalin link");
+    }
+  };
+
+  const handleShare = (file: FileRecord, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onShare) {
+      onShare(file);
+    }
+  };
+
+  const handleDelete = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onDelete) {
+      if (confirm("Apakah Anda yakin ingin menghapus file ini?")) {
+        onDelete(id);
+      }
+    }
+  };
+
   if (files.length === 0) {
     return (
       <div className="text-center py-16 bg-white rounded-xl border border-gray-200 col-span-full">
@@ -50,8 +92,9 @@ export function FileGrid({ files, onFileClick }: FileGridProps) {
         <div
           key={file.id}
           onClick={() => onFileClick(file)}
-          className="bg-white rounded-xl border border-gray-200 p-4 text-center hover:shadow-lg hover:border-blue-300 hover:-translate-y-0.5 transition-all cursor-pointer group"
+          className="bg-white rounded-xl border border-gray-200 p-4 text-center hover:shadow-lg hover:border-blue-300 hover:-translate-y-0.5 transition-all cursor-pointer group relative"
         >
+          {/* Badge status */}
           <div className="relative">
             <FileIcon mimeType={file.mime_type} className="w-14 h-14 mx-auto text-gray-500 group-hover:text-blue-500 transition-colors" />
             
@@ -75,15 +118,26 @@ export function FileGrid({ files, onFileClick }: FileGridProps) {
             </span>
           </div>
           
+          {/* Aksi - muncul saat hover */}
           <div className="flex items-center justify-center gap-1 mt-3 opacity-0 group-hover:opacity-100 transition-opacity">
             {file.share_id && (
               <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  navigator.clipboard.writeText(`${process.env.NEXT_PUBLIC_APP_URL}/s/${file.share_id}`);
-                }}
+                onClick={(e) => copyToClipboard(`${process.env.NEXT_PUBLIC_APP_URL}/s/${file.share_id}`, file.id, e)}
                 className="p-1.5 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
                 title="Salin link"
+              >
+                {copiedId === file.id ? (
+                  <Check size={14} className="text-green-600" />
+                ) : (
+                  <Copy size={14} />
+                )}
+              </button>
+            )}
+            {onShare && (
+              <button
+                onClick={(e) => handleShare(file, e)}
+                className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                title="Buat link share"
               >
                 <LinkIcon size={14} />
               </button>
@@ -98,9 +152,18 @@ export function FileGrid({ files, onFileClick }: FileGridProps) {
             >
               <Download size={14} />
             </a>
+            {onDelete && (
+              <button
+                onClick={(e) => handleDelete(file.id, e)}
+                className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                title="Hapus"
+              >
+                <Trash2 size={14} />
+              </button>
+            )}
           </div>
         </div>
       ))}
     </div>
   );
-          }
+  }
