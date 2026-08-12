@@ -53,19 +53,14 @@ export function ShareModal({
     return `${(bytes / Math.pow(k, i)).toFixed(1)} ${sizes[i]}`;
   };
 
-  const formatDate = (date: string) => {
-    const d = new Date(date);
-    return d.toLocaleDateString("id-ID", {
-      day: "numeric",
-      month: "long",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
-
   const handleCreate = async () => {
-    if (isCreating || fileIds.length === 0) return;
+    if (isCreating || fileIds.length === 0) {
+      toast.error("Pilih minimal 1 file");
+      return;
+    }
+    
+    console.log("🚀 Creating share for", fileIds.length, "files");
+    console.log("📁 File IDs:", fileIds);
     
     setIsCreating(true);
     setLoading(true);
@@ -76,7 +71,7 @@ export function ShareModal({
       setShareUrl(url);
       toast.success(`✨ Link share untuk ${fileIds.length} file berhasil dibuat!`);
     } catch (error) {
-      console.error("Create share error:", error);
+      console.error("❌ Create share error:", error);
       toast.error("Gagal membuat link share: " + (error as Error).message);
     } finally {
       setLoading(false);
@@ -139,7 +134,6 @@ export function ShareModal({
           </div>
         </div>
         
-        {/* File List Preview */}
         <div className="bg-gray-50 rounded-lg p-3 sm:p-4 mb-4 border border-gray-100 max-h-40 overflow-y-auto">
           {fileList.slice(0, 5).map((f) => (
             <div key={f.id} className="flex items-center gap-2 py-1.5 border-b border-gray-100 last:border-0">
@@ -194,12 +188,6 @@ export function ShareModal({
                 Buat Ulang
               </button>
             </div>
-
-            {fileList.some(f => f.share_id) && (
-              <div className="text-center text-xs text-gray-400 bg-gray-50 rounded-lg p-2">
-                🔗 Beberapa file sudah memiliki link share sebelumnya
-              </div>
-            )}
           </div>
         ) : (
           <div className="space-y-4">
@@ -278,4 +266,4 @@ export function ShareModal({
       </div>
     </div>
   );
-                         }
+        }
