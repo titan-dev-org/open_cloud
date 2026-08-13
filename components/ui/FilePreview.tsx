@@ -1,14 +1,14 @@
-'use client'
+"use client"
 
-import { useState, useEffect } from 'react'
-import { X, Download, Maximize2, Minimize2 } from 'lucide-react'
+import { useState } from "react"
+import { X, Download, Maximize2, Minimize2, File } from "lucide-react"
 
 interface FilePreviewProps {
   file: {
     name: string
     mime_type: string
     public_url: string
-  }
+  } | null
   isOpen: boolean
   onClose: () => void
 }
@@ -16,21 +16,11 @@ interface FilePreviewProps {
 export function FilePreview({ file, isOpen, onClose }: FilePreviewProps) {
   const [isFullscreen, setIsFullscreen] = useState(false)
 
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        onClose()
-      }
-    }
-    document.addEventListener('keydown', handleKeyDown)
-    return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [onClose])
-
   if (!isOpen || !file) return null
 
-  const isImage = file.mime_type.startsWith('image/')
-  const isVideo = file.mime_type.startsWith('video/')
-  const isPDF = file.mime_type === 'application/pdf'
+  const isImage = file.mime_type.startsWith("image/")
+  const isVideo = file.mime_type.startsWith("video/")
+  const isPDF = file.mime_type === "application/pdf"
 
   const getPreviewContent = () => {
     if (isImage) {
@@ -38,7 +28,7 @@ export function FilePreview({ file, isOpen, onClose }: FilePreviewProps) {
         <img
           src={file.public_url}
           alt={file.name}
-          className={`w-full h-auto max-h-[70vh] object-contain ${isFullscreen ? 'max-h-[90vh]' : ''}`}
+          className={`w-full h-auto max-h-[70vh] object-contain ${isFullscreen ? "max-h-[90vh]" : ""}`}
         />
       )
     }
@@ -48,7 +38,7 @@ export function FilePreview({ file, isOpen, onClose }: FilePreviewProps) {
         <video
           src={file.public_url}
           controls
-          className={`w-full max-h-[70vh] ${isFullscreen ? 'max-h-[90vh]' : ''}`}
+          className={`w-full max-h-[70vh] ${isFullscreen ? "max-h-[90vh]" : ""}`}
           autoPlay={false}
         />
       )
@@ -59,12 +49,11 @@ export function FilePreview({ file, isOpen, onClose }: FilePreviewProps) {
         <embed
           src={file.public_url}
           type="application/pdf"
-          className={`w-full h-[60vh] ${isFullscreen ? 'h-[85vh]' : ''}`}
+          className={`w-full h-[60vh] ${isFullscreen ? "h-[85vh]" : ""}`}
         />
       )
     }
 
-    // Fallback untuk file yang tidak bisa preview
     return (
       <div className="flex flex-col items-center justify-center py-12">
         <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mb-4">
@@ -83,17 +72,16 @@ export function FilePreview({ file, isOpen, onClose }: FilePreviewProps) {
   return (
     <div
       className={`fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4 ${
-        isFullscreen ? 'p-0' : ''
+        isFullscreen ? "p-0" : ""
       }`}
       onClick={onClose}
     >
       <div
         className={`bg-white rounded-2xl shadow-2xl w-full max-w-4xl transition-all ${
-          isFullscreen ? 'rounded-none max-w-full h-full' : ''
+          isFullscreen ? "rounded-none max-w-full h-full" : ""
         }`}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-gray-100">
           <div className="flex items-center gap-3 min-w-0">
             <span className="font-medium text-gray-900 truncate">{file.name}</span>
@@ -103,7 +91,6 @@ export function FilePreview({ file, isOpen, onClose }: FilePreviewProps) {
             <button
               onClick={() => setIsFullscreen(!isFullscreen)}
               className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-              title={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
             >
               {isFullscreen ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
             </button>
@@ -111,7 +98,6 @@ export function FilePreview({ file, isOpen, onClose }: FilePreviewProps) {
               href={file.public_url}
               download={file.name}
               className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-              title="Download"
             >
               <Download size={18} />
             </a>
@@ -124,13 +110,12 @@ export function FilePreview({ file, isOpen, onClose }: FilePreviewProps) {
           </div>
         </div>
 
-        {/* Content */}
-        <div className={`p-4 ${isFullscreen ? 'p-0 h-[calc(100%-64px)]' : ''}`}>
-          <div className={`flex items-center justify-center ${isFullscreen ? 'h-full' : ''}`}>
+        <div className={`p-4 ${isFullscreen ? "p-0 h-[calc(100%-64px)]" : ""}`}>
+          <div className={`flex items-center justify-center ${isFullscreen ? "h-full" : ""}`}>
             {getPreviewContent()}
           </div>
         </div>
       </div>
     </div>
   )
-    }
+          }
